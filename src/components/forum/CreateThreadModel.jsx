@@ -36,7 +36,7 @@ export default function CreateThreadModal({ onCreate }) {
           <DialogTitle>Create New Thread</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          <div>
+          <div className="space-y-1">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
@@ -44,7 +44,7 @@ export default function CreateThreadModal({ onCreate }) {
               onChange={(e) => setThreadTitle(e.target.value)}
             />
           </div>
-          <div>
+          <div className="space-y-1">
             <Label htmlFor="content">Content</Label>
             <Textarea
               id="content"

@@ -58,6 +58,22 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleDeleteForum(forumId) {
+    if (!confirm('Are you sure you want to delete this forum?')) return;
+
+    try {
+      const res = await fetch(`/api/forums/${forumId}`, { method: 'DELETE' });
+
+      if (!res.ok) throw new Error('Failed to delete forum');
+
+      setForums(prev => prev.filter(f => f._id !== forumId));
+    } catch (err) {
+      console.error('Delete forum error:', err);
+      alert('Error deleting forum');
+    }
+  }
+
+
 
   // Redirect if not authenticated or not admin
   useEffect(() => {
@@ -148,7 +164,7 @@ export default function AdminDashboard() {
             <Card key={forum._id}>
               <CardContent className="p-4 flex justify-between items-center">
                 <p className="font-medium">{forum.title}</p>
-                <Button variant="destructive" size="sm">Delete</Button>
+                <Button variant="destructive" size="sm" onClick={() => handleDeleteForum(forum._id)}>Delete</Button>
               </CardContent>
             </Card>
           ))}

@@ -4,7 +4,6 @@ import Thread from "@/model/thread";
 import { connectToDatabase } from "@/lib/mongodb";
 import mongoose from "mongoose";
 import { getClientIP } from "@/lib/utils";
-
 import { getUserFromCookie } from "@/lib/auth";
 
 /**
@@ -28,7 +27,6 @@ export async function GET(request, context) {
   try {
     await connectToDatabase();
 
-    // Validate ObjectId
     if (!isValidObjectId(id)) {
       return NextResponse.json(
         { success: false, error: "Invalid forum ID format" },
@@ -36,7 +34,6 @@ export async function GET(request, context) {
       );
     }
 
-    // Verify forum exists
     const forum = await Forum.findById(id);
     if (!forum) {
       return NextResponse.json(
@@ -54,7 +51,6 @@ export async function GET(request, context) {
 
     const skip = (page - 1) * limit;
 
-    // Search query
     let query = { forum: id };
     if (search) {
       query = {
@@ -107,28 +103,34 @@ export async function GET(request, context) {
   }
 }
 
+// POST /api/forums/[id]/threads
 export async function POST(request, context) {
   const { id } = await context.params;
-  const user = await getUserFromCookie(); // make sure this is async if needed
+  const user = await getUserFromCookie();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = await connectToDatabase();
+  await connectToDatabase();
   const body = await request.json();
 
-  const newThread = {
-    title: body.title,
-    content: body.content,
-    forum: id,
-    createdBy: user.id,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  try {
+    const newThread = await Thread.create({
+      title: body.title,
+      content: body.content,
+      forum: id,
+      createdBy: user.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
-  const result = await db.collection("threads").insertOne(newThread);
-
-  return NextResponse.json({ data: { ...newThread, _id: result.insertedId } });
+    return NextResponse.json({ data: newThread }, { status: 201 });
+  } catch (err) {
+    console.error("Error creating thread:", err);
+    return NextResponse.json(
+      { error: "Failed to create thread" },
+      { status: 500 }
+    );
+  }
 }
-

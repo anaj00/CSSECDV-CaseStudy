@@ -51,10 +51,10 @@ const userSchema = new Schema({
     },
     role: {
         type: String,
-        enum: ['admin', 'manager', 'customer'],
+        enum: ['admin', 'moderator', 'user'],
         required: true,
         trim: true,
-        default: 'customer',
+        default: 'user',
     },
     isActive: {
         type: Boolean,

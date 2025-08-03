@@ -41,8 +41,8 @@ export async function POST(request) {
       return NextResponse.json({ error: "Username or email already exists" }, { status: 409 });
     }
 
-    let userRole = 'customer';
-    if (role && ['admin', 'manager'].includes(role)) {
+    let userRole = 'user';
+    if (role && ['admin', 'moderator'].includes(role)) {
       userRole = role;
     }
 

@@ -200,36 +200,33 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   const clientIP = getClientIP(request);
-  const userAgent = request.headers.get('user-agent') || 'unknown';
+  const userAgent = request.headers.get("user-agent") || "unknown";
 
   try {
     await connectToDatabase();
 
     const user = await getUserFromCookie();
-    const { id } = await params;
+    const { id } = params;
+
     if (!user) {
-      try {
-        await SecurityLog.logEvent({
-          eventType: 'FORUM_DELETE_UNAUTHORIZED',
-          username: 'unknown',
-          ipAddress: clientIP,
-          userAgent,
-          details: { forumId: id },
-          severity: 'HIGH',
-        });
-      } catch (logErr) {
-        console.error('Failed to log unauthorized delete attempt:', logErr);
-      }
+      await SecurityLog.logEvent({
+        eventType: "FORUM_DELETE_UNAUTHORIZED",
+        username: "unknown",
+        ipAddress: clientIP,
+        userAgent,
+        details: { forumId: id },
+        severity: "HIGH",
+      });
 
       return NextResponse.json(
-        { success: false, error: 'Authentication required' },
+        { success: false, error: "Authentication required" },
         { status: 401 }
       );
     }
 
     if (!isValidObjectId(id)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid forum ID format' },
+        { success: false, error: "Invalid forum ID format" },
         { status: 400 }
       );
     }
@@ -237,30 +234,32 @@ export async function DELETE(request, { params }) {
     const existingForum = await Forum.findById(id);
     if (!existingForum) {
       return NextResponse.json(
-        { success: false, error: 'Forum not found' },
+        { success: false, error: "Forum not found" },
         { status: 404 }
       );
     }
 
-    const isAdmin = user.role === 'admin';
+    const isAdmin = user.role === "admin";
+    const isModerator = user.role === "moderator";
     const isOwner = existingForum.createdBy.toString() === user.id;
 
-    if (!isAdmin && !isOwner) {
-      try {
-        await SecurityLog.logEvent({
-          eventType: 'FORUM_DELETE_UNAUTHORIZED',
-          username: user.username,
-          ipAddress: clientIP,
-          userAgent,
-          details: { forumId: id },
-          severity: 'MEDIUM',
-        });
-      } catch (logErr) {
-        console.error('Failed to log unauthorized forum delete:', logErr);
-      }
+    // Allow admins, moderators, or the forum creator
+    if (!isAdmin && !isModerator && !isOwner) {
+      await SecurityLog.logEvent({
+        eventType: "FORUM_DELETE_UNAUTHORIZED",
+        username: user.username,
+        ipAddress: clientIP,
+        userAgent,
+        details: { forumId: id },
+        severity: "MEDIUM",
+      });
 
       return NextResponse.json(
-        { success: false, error: 'Unauthorized: You can only delete your own forums' },
+        {
+          success: false,
+          error:
+            "Unauthorized: Only admins, moderators, or the forum owner can delete",
+        },
         { status: 403 }
       );
     }
@@ -270,7 +269,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Cannot delete forum with existing threads',
+          error: "Cannot delete forum with existing threads",
           details: `Forum has ${threadCount} thread(s). Please delete all threads first.`,
         },
         { status: 409 }
@@ -279,33 +278,32 @@ export async function DELETE(request, { params }) {
 
     await Forum.findByIdAndDelete(id);
 
-    try {
-      await SecurityLog.logEvent({
-        eventType: 'FORUM_DELETED',
-        username: user.username,
-        ipAddress: clientIP,
-        userAgent,
-        details: { forumId: id },
-        severity: 'LOW',
-      });
-    } catch (logErr) {
-      console.error('Failed to log successful forum delete:', logErr);
-    }
+    await SecurityLog.logEvent({
+      eventType: "FORUM_DELETED",
+      username: user.username,
+      ipAddress: clientIP,
+      userAgent,
+      details: { forumId: id },
+      severity: "LOW",
+    });
 
     return NextResponse.json({
       success: true,
-      message: 'Forum deleted successfully',
+      message: "Forum deleted successfully",
     });
   } catch (error) {
-    console.error('Error deleting forum:', error);
+    console.error("Error deleting forum:", error);
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to delete forum',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        error: "Failed to delete forum",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       },
       { status: 500 }
     );
   }
 }
+
+
 

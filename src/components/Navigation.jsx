@@ -27,6 +27,7 @@ export default function Navigation() {
         >
           Home
         </Button>
+
         {user && (
           <Button
             variant="link"
@@ -36,6 +37,7 @@ export default function Navigation() {
             Forums
           </Button>
         )}
+
         {user?.role === "admin" && (
           <Button
             variant="link"
@@ -43,6 +45,16 @@ export default function Navigation() {
             className="p-0"
           >
             Admin
+          </Button>
+        )}
+
+        {user?.role === "moderator" && (
+          <Button
+            variant="link"
+            onClick={() => router.push("/moderator")}
+            className="p-0"
+          >
+            Moderator
           </Button>
         )}
       </div>

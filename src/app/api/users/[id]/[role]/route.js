@@ -1,77 +1,87 @@
-import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import User from '@/model/users';
-import SecurityLog from '@/model/securitylog';
-import { getUserFromCookie } from '@/lib/auth';
+import { NextResponse } from "next/server";
+import connectDB from "@/lib/mongodb";
+import User from "@/model/users";
+import SecurityLog from "@/model/securitylog";
+import { getUserFromCookie } from "@/lib/auth";
 
 export async function PATCH(req, { params }) {
   await connectDB();
-  const { id } = await params;
+  const { id } = params;
   const { newRole } = await req.json();
 
-  // Validate role
-  if (!['user', 'moderator'].includes(newRole)) {
-    return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+  const validRoles = ["user", "moderator"];
+
+  if (!validRoles.includes(newRole)) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
-  const adminUser = await getUserFromCookie();
+  const actingUser = await getUserFromCookie();
 
-  // Check authorization
-  if (!adminUser || adminUser.role !== 'admin') {
-    try {
-      await SecurityLog.create({
-        eventType: 'UNAUTHORIZED_ROLE_CHANGE_ATTEMPT',
-        username: adminUser?.username ?? 'Unknown',
-        ipAddress: req.headers.get('x-forwarded-for') ?? 'unknown',
-        userAgent: req.headers.get('user-agent') ?? 'unknown',
-        severity: 'HIGH',
-        details: {
-          attemptedUserId: id,
-          attemptedNewRole: newRole,
-        },
-      });
-    } catch (logErr) {
-      console.error('Logging failed (unauthorized):', logErr);
-    }
-
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!actingUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const targetUser = await User.findById(id);
+  if (!targetUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Prevent modifying admins unless you are admin
+  if (targetUser.role === "admin" && actingUser.role !== "admin") {
+    return NextResponse.json(
+      { error: "Forbidden: Cannot modify admin" },
+      { status: 403 }
+    );
+  }
+
+  // Moderators cannot assign the "admin" role
+  if (actingUser.role === "moderator" && newRole === "admin") {
+    return NextResponse.json(
+      { error: "Forbidden: Cannot assign admin role" },
+      { status: 403 }
+    );
+  }
+
+  // Moderators can only modify user/moderator roles
+  if (
+    actingUser.role === "moderator" &&
+    !(targetUser.role === "user" || targetUser.role === "moderator")
+  ) {
+    return NextResponse.json(
+      { error: "Forbidden: Cannot modify this user" },
+      { status: 403 }
+    );
+  }
+
+  const oldRole = targetUser.role;
 
   try {
-    const targetUser = await User.findById(id);
-    if (!targetUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    const oldRole = targetUser.role;
-
     const updatedUser = await User.findByIdAndUpdate(
       id,
       { role: newRole },
       { new: true }
     );
 
-    try {
-      await SecurityLog.create({
-        eventType: 'ROLE_UPDATE',
-        username: adminUser.username,
-        ipAddress: req.headers.get('x-forwarded-for') ?? 'unknown',
-        userAgent: req.headers.get('user-agent') ?? 'unknown',
-        severity: 'MEDIUM',
-        details: {
-          targetUserId: updatedUser._id,
-          oldRole,
-          newRole,
-        },
-      });
-    } catch (logErr) {
-      console.error('Logging failed (role update):', logErr);
-    }
+    await SecurityLog.create({
+      eventType: "ROLE_UPDATE",
+      username: actingUser.username,
+      ipAddress: req.headers.get("x-forwarded-for") ?? "unknown",
+      userAgent: req.headers.get("user-agent") ?? "unknown",
+      severity: "MEDIUM",
+      details: {
+        targetUserId: updatedUser._id,
+        oldRole,
+        newRole,
+        by: actingUser.username,
+      },
+    });
 
     return NextResponse.json({ user: updatedUser });
-
   } catch (err) {
-    console.error('Role update error:', err);
-    return NextResponse.json({ error: 'Failed to update role' }, { status: 500 });
+    console.error("Role update error:", err);
+    return NextResponse.json(
+      { error: "Failed to update role" },
+      { status: 500 }
+    );
   }
 }

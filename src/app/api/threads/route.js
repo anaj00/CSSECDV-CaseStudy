@@ -125,18 +125,25 @@ export async function PUT(request) {
   }
 }
 
-// DELETE THREAD
+// DELETE THREAD (with Moderator support)
 export async function DELETE(request) {
   const db = await connectToDatabase();
   const { id } = await request.json();
   const user = getUserFromCookie();
 
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
     const objectId = toObjectId(id);
     const thread = await db.collection('threads').findOne({ _id: objectId });
-    if (!thread || (thread.createdBy !== user.id && user.role !== 'admin')) {
+
+    const isAdmin = user.role === 'admin';
+    const isModerator = user.role === 'moderator';
+    const isOwner = thread?.createdBy === user.id;
+
+    if (!thread || (!isOwner && !isAdmin && !isModerator)) {
       await SecurityLog.logEvent({
         eventType: 'THREAD_FORBIDDEN_ACCESS',
         userId: user.id,
@@ -144,7 +151,7 @@ export async function DELETE(request) {
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',
         details: { attemptedThreadId: id, action: 'delete' },
-        severity: 'HIGH'
+        severity: 'HIGH',
       });
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -158,11 +165,13 @@ export async function DELETE(request) {
       ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
       userAgent: request.headers.get('user-agent') || 'unknown',
       details: { threadId: id, title: thread.title },
-      severity: 'MEDIUM'
+      severity: 'MEDIUM',
     });
 
     return NextResponse.json({ message: 'Thread deleted' });
   } catch (err) {
+    console.error('Thread deletion failed:', err);
     return NextResponse.json({ error: 'Invalid thread ID' }, { status: 400 });
   }
 }
+

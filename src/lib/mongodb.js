@@ -1,62 +1,61 @@
-import { MongoClient } from 'mongodb';
 import mongoose from 'mongoose';
 
 const uri = process.env.MONGODB_URI;
-const options = {
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  family: 4
-};
 
-if (!MONGODB_URI) {
+if (!uri) {
   throw new Error("Please define MONGODB_URI in .env.local");
 }
+
+// MongoDB Atlas optimized connection options
+const options = {
+  serverSelectionTimeoutMS: 10000, // Increased for Atlas
+  socketTimeoutMS: 45000,
+  maxPoolSize: 10,
+  retryWrites: true,
+  w: 'majority'
+};
 
 let cached = global.mongoose || { conn: null, promise: null };
 global.mongoose = cached;
 
-export default async function connectToDatabase() {
-  if (cached.conn) return cached.conn;
-
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, {
-      bufferCommands: false,
-    });
-  }
-
-  cached.conn = await cached.promise;
-  return cached.conn;
-}
-
 /**
  * Function to connect using Mongoose for NextAuth and general database operations.
- * Checks connection state and reuses existing connections to avoid connection pooling issues.
+ * Optimized for MongoDB Atlas with proper connection pooling and error handling.
  *
  * @returns {Promise<mongoose.Connection>} The mongoose connection object
  */
 export async function connectToDatabase() {
   try {
+    // Check if already connected
     if (mongoose.connection.readyState >= 1) {
-      console.log('Already connected to MongoDB');
+      console.log('Already connected to MongoDB Atlas');
       return mongoose.connection;
     }
 
-    console.log('Connecting to MongoDB...');
-    const connection = await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      family: 4
+    // Use cached promise if available
+    if (cached.promise) {
+      console.log('Using cached MongoDB connection promise');
+      return cached.promise;
+    }
+
+    console.log('Connecting to MongoDB Atlas...');
+    
+    // Create new connection promise
+    cached.promise = mongoose.connect(uri, options).then((mongoose) => {
+      console.log('Connected to MongoDB Atlas successfully');
+      return mongoose;
     });
-    console.log('Connected to MongoDB successfully');
-    return connection;
+
+    cached.conn = await cached.promise;
+    return cached.conn;
+    
   } catch (error) {
-    console.error('MongoDB connection error:', error.message);
+    console.error('MongoDB Atlas connection error:', error.message);
+    // Reset cached promise on error
+    cached.promise = null;
     throw error;
   }
 }
 
-export default clientPromise;
+// For backwards compatibility and NextAuth
+export default connectToDatabase;

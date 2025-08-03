@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
-
+import { format } from 'date-fns'; 
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -16,6 +16,8 @@ export default function AdminDashboard() {
   const [forums, setForums] = useState([]);
   const [threads, setThreads] = useState([]);
   const [users, setUsers] = useState([]);
+  const [logs, setLogs] = useState([]);
+
   const [loadingData, setLoadingData] = useState(true);
 
   async function handleRoleChange(userId, currentRole) {
@@ -89,19 +91,23 @@ export default function AdminDashboard() {
 
     async function fetchData() {
       try {
-        const [forumRes, threadRes, userRes] = await Promise.all([
-          fetch('/api/forums'),
-          fetch('/api/threads'),
-          fetch('/api/users'),
+        const [forumRes, threadRes, userRes, logRes] = await Promise.all([
+          fetch("/api/forums"),
+          fetch("/api/threads"),
+          fetch("/api/users"),
+          fetch("/api/logs"),
         ]);
 
         const forumJson = await forumRes.json();
         const threadJson = await threadRes.json();
         const userJson = await userRes.json();
+        const logJson = await logRes.json();
 
         setForums(forumJson?.data || []);
         setThreads(threadJson?.data || []);
-        setUsers(userJson?.users || []); // FIXED: access `users` array
+        setUsers(userJson?.users || []);
+        setLogs(logJson?.logs || []);
+
       } catch (err) {
         console.error("Failed to load admin data:", err);
       } finally {
@@ -140,11 +146,19 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex gap-2">
                   {u.role !== "admin" && (
-                    <Button variant="outline" size="sm" onClick={() => handleRoleChange(u._id, u.role)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRoleChange(u._id, u.role)}
+                    >
                       {u.role === "moderator" ? "Demote" : "Promote to Mod"}
                     </Button>
                   )}
-                  <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(u._id)}>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteUser(u._id)}
+                  >
                     Delete
                   </Button>
                 </div>
@@ -164,7 +178,13 @@ export default function AdminDashboard() {
             <Card key={forum._id}>
               <CardContent className="p-4 flex justify-between items-center">
                 <p className="font-medium">{forum.title}</p>
-                <Button variant="destructive" size="sm" onClick={() => handleDeleteForum(forum._id)}>Delete</Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDeleteForum(forum._id)}
+                >
+                  Delete
+                </Button>
               </CardContent>
             </Card>
           ))}
@@ -186,10 +206,46 @@ export default function AdminDashboard() {
                     {thread?.createdBy?.username || "Unknown"}
                   </p>
                 </div>
-                <Button variant="destructive" size="sm">Delete</Button>
+                <Button variant="destructive" size="sm">
+                  Delete
+                </Button>
               </CardContent>
             </Card>
           ))}
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Security Logs */}
+      <section>
+        <h2 className="text-xl font-semibold mb-4">Security Logs</h2>
+        <div className="rounded-md border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {logs.length === 0 && (
+              <p className="text-sm text-muted-foreground p-4">
+                No logs available.
+              </p>
+            )}
+            {logs.map((log) => (
+              <div key={log._id} className="p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{log.eventType}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {log.timestamp
+                      ? format(new Date(log.timestamp), "PPPpp")
+                      : "Unknown time"}
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {log.username || "Unknown"} from {log.ipAddress}
+                </div>
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  {log.details?.reason || log.details?.message || "-"}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </main>

@@ -50,17 +50,17 @@ export async function POST(request) {
     }
 
     // Log the logout event
-    await SecurityLog.logEvent({
-      eventType: 'LOGOUT',
-      userId: userId,
-      username: username,
-      ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
-                 request.headers.get('x-real-ip') || 
-                 'unknown',
-      userAgent: request.headers.get('user-agent') || 'unknown',
-      details: { reason: 'User initiated logout' },
-      severity: 'LOW'
-    });
+    await SecurityLog.logEvent(
+      'LOGOUT',
+      userId,
+      username,
+      request.headers.get('x-forwarded-for')?.split(',')[0] || 
+        request.headers.get('x-real-ip') || 
+        'unknown',
+      request.headers.get('user-agent') || 'unknown',
+      'LOW',
+      { reason: 'User initiated logout' }
+    );
 
     // Clear all auth cookies
     cookieStore.set("accessToken", "", {

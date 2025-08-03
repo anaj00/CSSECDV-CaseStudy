@@ -8,98 +8,112 @@ import { connectToDatabase } from "@/lib/mongodb";
 
 /**
  * Extract client IP address from request headers.
- *
- * @param {Request} request The incoming request object
- * @returns {String} Client IP address or 'unknown' if not found
  */
 function getClientIP(request) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0] ||
-         request.headers.get('x-real-ip') ||
-         request.headers.get('cf-connecting-ip') ||
-         'unknown';
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0] ||
+    request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
+    "unknown"
+  );
 }
 
 export async function POST(request) {
   const clientIP = getClientIP(request);
-  const userAgent = request.headers.get('user-agent') || 'unknown';
-  
+  const userAgent = request.headers.get("user-agent") || "unknown";
+
   try {
     await connectToDatabase();
-    
-    const data = await request.json();
-    const { username, password } = data;
+
+    const { username, password } = await request.json();
 
     if (!username || !password) {
-      await SecurityLog.logEvent({
-        eventType: 'LOGIN_FAILURE',
-        username: username || 'unknown',
-        ipAddress: clientIP,
-        userAgent: userAgent,
-        details: { reason: 'Missing credentials' },
-        severity: 'LOW'
-      });
-      return NextResponse.json({ error: "Invalid username and/or password" }, { status: 400 });
+      await SecurityLog.logEvent(
+        "LOGIN_FAILURE",
+        null,
+        username || "unknown",
+        clientIP,
+        userAgent,
+        "LOW",
+        { reason: "Missing credentials" }
+      );
+      return NextResponse.json(
+        { error: "Invalid username and/or password" },
+        { status: 400 }
+      );
     }
 
     const user = await User.findOne({ username }).select("+password");
     if (!user) {
-      await SecurityLog.logEvent({
-        eventType: 'LOGIN_FAILURE',
-        username: username,
-        ipAddress: clientIP,
-        userAgent: userAgent,
-        details: { reason: 'User not found' },
-        severity: 'MEDIUM'
-      });
-      return NextResponse.json({ error: "Invalid username and/or password" }, { status: 401 });
+      await SecurityLog.logEvent(
+        "LOGIN_FAILURE",
+        null,
+        username,
+        clientIP,
+        userAgent,
+        "MEDIUM",
+        { reason: "User not found" }
+      );
+      return NextResponse.json(
+        { error: "Invalid username and/or password" },
+        { status: 401 }
+      );
     }
 
     if (user.isAccountLocked) {
-      await SecurityLog.logEvent({
-        eventType: 'LOGIN_FAILURE',
-        userId: user._id,
-        username: user.username,
-        ipAddress: clientIP,
-        userAgent: userAgent,
-        details: { reason: 'Account locked' },
-        severity: 'HIGH'
-      });
-      return NextResponse.json({ 
-        error: "Account is temporarily locked due to multiple failed login attempts. Please try again later." 
-      }, { status: 423 });
+      await SecurityLog.logEvent(
+        "LOGIN_FAILURE",
+        user._id,
+        user.username,
+        clientIP,
+        userAgent,
+        "HIGH",
+        { reason: "Account locked" }
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
+        },
+        { status: 423 }
+      );
     }
 
     if (!user.isActive) {
-      await SecurityLog.logEvent({
-        eventType: 'LOGIN_FAILURE',
-        userId: user._id,
-        username: user.username,
-        ipAddress: clientIP,
-        userAgent: userAgent,
-        details: { reason: 'Account inactive' },
-        severity: 'HIGH'
-      });
-      return NextResponse.json({ error: "Account is inactive" }, { status: 403 });
+      await SecurityLog.logEvent(
+        "LOGIN_FAILURE",
+        user._id,
+        user.username,
+        clientIP,
+        userAgent,
+        "HIGH",
+        { reason: "Account inactive" }
+      );
+      return NextResponse.json(
+        { error: "Account is inactive" },
+        { status: 403 }
+      );
     }
 
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       await user.incLoginAttempts();
-      
-      await SecurityLog.logEvent({
-        eventType: 'LOGIN_FAILURE',
-        userId: user._id,
-        username: user.username,
-        ipAddress: clientIP,
-        userAgent: userAgent,
-        details: { 
-          reason: 'Invalid password',
-          attemptCount: user.loginAttempts + 1 
-        },
-        severity: 'MEDIUM'
-      });
-      
-      return NextResponse.json({ error: "Invalid username and/or password" }, { status: 401 });
+      await SecurityLog.logEvent(
+        "LOGIN_FAILURE",
+        user._id,
+        user.username,
+        clientIP,
+        userAgent,
+        "MEDIUM",
+        {
+          reason: "Invalid password",
+          attemptCount: user.loginAttempts + 1,
+        }
+      );
+      return NextResponse.json(
+        { error: "Invalid username and/or password" },
+        { status: 401 }
+      );
     }
 
     await user.resetLoginAttempts();
@@ -122,18 +136,18 @@ export async function POST(request) {
       token: refreshToken,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       ip: clientIP,
-      userAgent: userAgent
+      userAgent: userAgent,
     });
 
-    await SecurityLog.logEvent({
-      eventType: 'LOGIN_SUCCESS',
-      userId: user._id,
-      username: user.username,
-      ipAddress: clientIP,
-      userAgent: userAgent,
-      details: { loginMethod: 'credentials' },
-      severity: 'LOW'
-    });
+    await SecurityLog.logEvent(
+      "LOGIN_SUCCESS",
+      user._id,
+      user.username,
+      clientIP,
+      userAgent,
+      "LOW",
+      { loginMethod: "credentials" }
+    );
 
     const cookieStore = await cookies();
     cookieStore.set({
@@ -161,30 +175,36 @@ export async function POST(request) {
       user: {
         username: user.username,
         role: user.role,
-      }
+      },
     };
 
     if (user.previousLogin) {
       responseData.lastLogin = {
         timestamp: user.previousLogin,
-        message: `Last login: ${user.previousLogin.toLocaleString()}`
+        message: `Last login: ${user.previousLogin.toLocaleString()}`,
       };
     }
 
     return NextResponse.json(responseData);
-
   } catch (error) {
     console.error("Login API Error:", error);
-    
-    await SecurityLog.logEvent({
-      eventType: 'LOGIN_FAILURE',
-      username: 'unknown',
-      ipAddress: clientIP,
-      userAgent: userAgent,
-      details: { reason: 'System error', error: error.message },
-      severity: 'HIGH'
-    });
-    
-    return NextResponse.json({ error: "An error occurred during login" }, { status: 500 });
+
+    await SecurityLog.logEvent(
+      "LOGIN_FAILURE",
+      null,
+      username || "unknown",
+      clientIP,
+      userAgent,
+      "HIGH",
+      {
+        reason: "System error",
+        error: error.message,
+      }
+    );
+
+    return NextResponse.json(
+      { error: "An error occurred during login" },
+      { status: 500 }
+    );
   }
 }

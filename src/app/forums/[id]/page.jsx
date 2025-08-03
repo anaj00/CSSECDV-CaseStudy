@@ -34,14 +34,19 @@ export default function ForumThreadsPage() {
     const fetchThreads = async () => {
       try {
         const res = await fetch(`/api/forums/${forumId}/threads`);
-        const data = await res.json();
+        const contentType = res.headers.get("content-type") || "";
 
-        if (res.ok) {
-          setThreads(data.data.threads || []);
-          setForumTitle(data.forum?.title || "Forum");
-        } else {
-          console.error(data.error || "Failed to load threads");
+        if (!res.ok || !contentType.includes("application/json")) {
+          console.error(
+            "Failed to load threads. Possibly a non-JSON response."
+          );
+          setFetching(false);
+          return;
         }
+
+        const data = await res.json();
+        setThreads(data.data.threads || []);
+        setForumTitle(data.data.forum?.title || "Forum");
       } catch (err) {
         console.error("Error fetching threads:", err);
       } finally {

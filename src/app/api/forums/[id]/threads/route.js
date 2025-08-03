@@ -10,7 +10,7 @@ import { getUserFromCookie } from "@/lib/auth";
  * Validate if the provided ID is a valid MongoDB ObjectId
  */
 function isValidObjectId(id) {
-  return mongoose.Types.ObjectId.isValid(id);
+  return typeof id === "string" && mongoose.Types.ObjectId.isValid(id);
 }
 
 /**
@@ -18,6 +18,8 @@ function isValidObjectId(id) {
  * Retrieve all threads for a specific forum with pagination
  */
 export async function GET(request, context) {
+  console.log("🧪 forumId from params:", context.params?.id);
+
   const { id: forumId } = context.params;
   const clientIP = getClientIP(request);
 

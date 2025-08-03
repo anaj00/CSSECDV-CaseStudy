@@ -17,43 +17,44 @@ const securityLogSchema = new Schema({
       "ACCESS_DENIED",
       "VALIDATION_FAILURE",
       "OAUTH_LOGIN",
-      "SESSION_EXPIRED"
-    ]
+      "SESSION_EXPIRED",
+      "REPLY_CREATED",
+    ],
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    default: null // Can be null for anonymous or failed logins
+    default: null, // Can be null for anonymous or failed logins
   },
   username: {
     type: String,
-    required: true
+    required: true,
   },
   ipAddress: {
     type: String,
-    required: true
+    required: true,
   },
   userAgent: {
     type: String,
-    required: true
+    required: true,
   },
   details: {
     type: mongoose.Schema.Types.Mixed,
-    default: {}
+    default: {},
   },
   severity: {
     type: String,
     enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
-    default: "LOW"
+    default: "LOW",
   },
   timestamp: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   sessionId: {
     type: String,
-    default: null
-  }
+    default: null,
+  },
 });
 
 //  Add indexes for performance

@@ -1,6 +1,6 @@
     import mongoose, { Schema } from 'mongoose';
 
-    const postSchema = new Schema({
+    const replySchema = new Schema({
     content: {
         type: String,
         required: true,
@@ -32,13 +32,14 @@
     },
     });
 
-    postSchema.pre('save', function (next) {
-    if (this.isModified('content')) {
+    replySchema.pre("save", function (next) {
+      if (this.isModified("content")) {
         this.edited = true;
         this.updatedAt = new Date();
-    }
-    next();
+      }
+      next();
     });
 
-    const Post = mongoose.models.Post || mongoose.model('Post', postSchema);
-    export default Post;
+    const Reply =
+      mongoose.models.Reply || mongoose.model("Reply", replySchema);
+    export default Reply;

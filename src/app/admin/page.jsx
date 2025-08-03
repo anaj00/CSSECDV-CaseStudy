@@ -75,6 +75,26 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleDeleteThread(threadId) {
+    if (!confirm('Are you sure you want to delete this thread?')) return;
+
+    try {
+      const res = await fetch(`/api/threads/${threadId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: threadId }),
+      });
+
+      if (!res.ok) throw new Error('Failed to delete thread');
+
+      setThreads(prev => prev.filter(t => t._id !== threadId));
+    } catch (err) {
+      console.error('Delete thread error:', err);
+      alert('Error deleting thread');
+    }
+  }
+
+
   // Redirect if not authenticated or not admin
   useEffect(() => {
     if (!authLoading) {
@@ -210,7 +230,7 @@ export default function AdminDashboard() {
                       </span>
                     </p>
                   </div>
-                  <Button variant="destructive" size="sm">
+                  <Button variant="destructive" size="sm" onClick={() => handleDeleteThread(thread._id)}>
                     Delete
                   </Button>
                 </CardContent>

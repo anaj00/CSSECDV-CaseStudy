@@ -39,6 +39,8 @@ const securityLogSchema = new Schema({
       "SYSTEM_ERROR",
       "ROLE_UPDATE",
       "FORUM_DELETE_UNAUTHORIZED",
+      "THREAD_FORBIDDEN_ACCESS",
+      "THREAD_DELETED",
     ],
   },
   userId: {

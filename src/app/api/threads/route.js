@@ -27,9 +27,8 @@ export async function GET(request) {
     .limit(limit)
     .toArray();
 
-  return NextResponse.json({ data: threads });
+  return NextResponse.json(threads);
 }
-
 
 // CREATE THREAD
 export async function POST(request) {

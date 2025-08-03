@@ -2,18 +2,7 @@ import { NextResponse } from "next/server";
 import Forum from "@/model/forum";
 import { connectToDatabase } from "@/lib/mongodb";
 
-/**
- * Extract client IP address from request headers.
- *
- * @param {Request} request The incoming request object
- * @returns {String} Client IP address or 'unknown' if not found
- */
-function getClientIP(request) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0] ||
-         request.headers.get('x-real-ip') ||
-         request.headers.get('cf-connecting-ip') ||
-         'unknown';
-}
+import { getClientIP } from "@/lib/utils";
 
 /**
  * GET /api/forums/search

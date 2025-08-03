@@ -5,18 +5,7 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { connectToDatabase } from "@/lib/mongodb";
 
-/**
- * Extract client IP address from request headers.
- *
- * @param {Request} request The incoming request object
- * @returns {String} Client IP address or 'unknown' if not found
- */
-function getClientIP(request) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0] ||
-         request.headers.get('x-real-ip') ||
-         request.headers.get('cf-connecting-ip') ||
-         'unknown';
-}
+import { getClientIP } from "@/lib/utils";
 
 export async function POST(request) {
   const clientIP = getClientIP(request);

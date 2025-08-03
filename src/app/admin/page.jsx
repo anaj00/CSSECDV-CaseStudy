@@ -75,6 +75,24 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleDeleteThread(threadId) {
+    if (!confirm('Are you sure you want to delete this thread?')) return;
+
+    try {
+      const res = await fetch(`/api/threads/${threadId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: threadId }),
+      });
+
+      if (!res.ok) throw new Error('Failed to delete thread');
+
+      setThreads(prev => prev.filter(t => t._id !== threadId));
+    } catch (err) {
+      console.error('Delete thread error:', err);
+      alert('Error deleting thread');
+    }
+  }
 
 
   // Redirect if not authenticated or not admin
@@ -197,21 +215,28 @@ export default function AdminDashboard() {
       <section>
         <h2 className="text-xl font-semibold mb-4">Threads</h2>
         <div className="space-y-4">
-          {threads.map((thread) => (
-            <Card key={thread._id}>
-              <CardContent className="p-4 flex justify-between items-center">
-                <div>
-                  <p className="font-medium">{thread.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {thread?.createdBy?.username || "Unknown"}
-                  </p>
-                </div>
-                <Button variant="destructive" size="sm">
-                  Delete
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {threads.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No threads available.</p>
+          ) : (
+            threads.map((thread) => (
+              <Card key={thread._id}>
+                <CardContent className="p-4 flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{thread.title || "Untitled Thread"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {thread.author?.createdBy?.username || "Unknown"} •{" "}
+                      <span className="text-xs">
+                        {new Date(thread.createdAt).toLocaleString()}
+                      </span>
+                    </p>
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={() => handleDeleteThread(thread._id)}>
+                    Delete
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </section>
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import ForumCard from "@/components/forum/ForumCard";
-import CreateThreadModal from "@/components/forum/CreateThreadModel";
+import CreateForumModal from "@/components/forum/CreateForumModel";
 
 const dummyForums = [
   { id: 1, name: "Announcements", description: "Official news and updates." },
@@ -36,9 +36,35 @@ export default function ForumIndexPage() {
    * @param {string} title - The title of the new thread
    * @param {string} content - The content/body of the new thread
    */
-  function handleCreateThread(title, content) {
-    console.log("Creating thread:", title, content);
+  async function handleForumThread(title, content) {
+    try {
+      const response = await fetch("/api/forums", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ title, description: content }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Failed to create forum:", data.error || "Unknown error");
+        alert(data.error || "Something went wrong");
+        return;
+      }
+
+      console.log("Forum created:", data);
+      router.refresh();
+
+    } catch (err) {
+      console.error("Error creating forum:", err);
+      alert("Failed to create forum");
+    }
   }
+
+
   if (loading) {
     return (
       <main className="max-w-4xl mx-auto px-4 py-10">
@@ -55,7 +81,7 @@ export default function ForumIndexPage() {
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Campus Forums</h1>
-        <CreateThreadModal onCreate={handleCreateThread} />
+        <CreateForumModal onCreate={handleForumThread} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">

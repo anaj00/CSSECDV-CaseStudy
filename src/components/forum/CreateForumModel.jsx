@@ -29,11 +29,11 @@ export default function CreateThreadModal({ onCreate }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Create Thread</Button>
+        <Button>Create New Forum</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New Thread</DialogTitle>
+          <DialogTitle>Create New Forum</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1">

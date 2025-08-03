@@ -13,21 +13,25 @@ function toObjectId(id) {
 export async function GET(request) {
   const db = await connectToDatabase();
   const { searchParams } = new URL(request.url);
-  const limit = parseInt(searchParams.get('limit') || '10');
-  const skip = parseInt(searchParams.get('skip') || '0');
-  const query = searchParams.get('q')?.toLowerCase();
 
-  const filter = query ? { title: { $regex: query, $options: 'i' } } : {};
+  const limit = parseInt(searchParams.get("limit") || "10");
+  const skip = parseInt(searchParams.get("skip") || "0");
+  const query = searchParams.get("q")?.toLowerCase();
+
+  const filter = query ? { title: { $regex: query, $options: "i" } } : {};
 
   const threads = await db
-    .collection('threads')
+    .collection("threads")
     .find(filter)
     .sort({ lastActivityAt: -1 })
     .skip(skip)
     .limit(limit)
     .toArray();
 
-  return NextResponse.json(threads);
+  return NextResponse.json({
+    success: true,
+    data: threads,
+  });
 }
 
 // CREATE THREAD

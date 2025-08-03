@@ -49,7 +49,7 @@ export async function DELETE(request, { params }) {
   try {
     await connectToDatabase();
     const user = await getUserFromCookie();
-    const { id } = params;
+    const { id } = await params;
 
     if (!user || !['admin', 'moderator'].includes(user.role)) {
       await SecurityLog.logEvent({

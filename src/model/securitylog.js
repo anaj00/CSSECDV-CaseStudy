@@ -41,7 +41,11 @@ const securityLogSchema = new Schema({
       "FORUM_DELETE_UNAUTHORIZED",
       "FORUM_DELETED",
       "THREAD_FORBIDDEN_ACCESS",
+      "THREAD_CREATED",
+      "THREAD_UPDATED",
       "THREAD_DELETED",
+      "THREAD_LOCKED",
+      "THREAD_UNLOCKED",
     ],
   },
   userId: {

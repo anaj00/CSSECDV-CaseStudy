@@ -74,6 +74,28 @@ export default function AdminDashboard() {
       alert('Error deleting forum');
     }
   }
+  
+  async function handleLockThread(threadId, isLocked) {
+    try {
+      const res = await fetch(`/api/threads/${threadId}/lock`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locked: !isLocked }), // optional if your API needs this
+      });
+
+      if (!res.ok) throw new Error("Failed to toggle lock");
+
+      const data = await res.json();
+      setThreads((prev) =>
+        prev.map((th) =>
+          th._id === threadId ? { ...th, isLocked: data.data.isLocked } : th
+        )
+      );
+    } catch (err) {
+      console.error("Error toggling thread lock:", err);
+      alert("Could not lock/unlock thread.");
+    }
+  }
 
   async function handleDeleteThread(threadId) {
     if (!confirm('Are you sure you want to delete this thread?')) return;
@@ -230,9 +252,18 @@ export default function AdminDashboard() {
                       </span>
                     </p>
                   </div>
-                  <Button variant="destructive" size="sm" onClick={() => handleDeleteThread(thread._id)}>
-                    Delete
-                  </Button>
+                  <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleLockThread(thread._id, thread.isLocked)}
+                      >
+                        {thread.isLocked ? "Unlock" : "Lock"}
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDeleteThread(thread._id)}>
+                        Delete
+                      </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))

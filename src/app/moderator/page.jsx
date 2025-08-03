@@ -84,21 +84,26 @@ export default function ModeratorDashboard() {
     fetchData();
   }, [user]);
 
-  async function handleLockThread(threadId, locked) {
-    await fetch(`/api/threads/${threadId}/lock`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locked: !locked }),
-    });
-    setThreads((t) =>
-      t.map((th) => (th._id === threadId ? { ...th, locked: !locked } : th))
-    );
-  }
+  async function handleLockThread(threadId, isLocked) {
+    try {
+      const res = await fetch(`/api/threads/${threadId}/lock`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locked: !isLocked }), // optional if your API needs this
+      });
 
-  async function handleDeleteThread(threadId) {
-    if (!confirm("Are you sure you want to delete this thread?")) return;
-    await fetch(`/api/threads/${threadId}`, { method: "DELETE" });
-    setThreads((t) => t.filter((th) => th._id !== threadId));
+      if (!res.ok) throw new Error("Failed to toggle lock");
+
+      const data = await res.json();
+      setThreads((prev) =>
+        prev.map((th) =>
+          th._id === threadId ? { ...th, isLocked: data.data.isLocked } : th
+        )
+      );
+    } catch (err) {
+      console.error("Error toggling thread lock:", err);
+      alert("Could not lock/unlock thread.");
+    }
   }
 
   async function handlePromoteUser(userId, currentRole) {
@@ -166,16 +171,16 @@ export default function ModeratorDashboard() {
                 <div>
                   <p className="font-medium">{thread.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    Locked: {thread.locked ? "Yes" : "No"}
+                    Locked: {thread.isLocked ? "Yes" : "No"}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleLockThread(thread._id, thread.locked)}
+                    onClick={() => handleLockThread(thread._id, thread.isLocked)}
                   >
-                    {thread.locked ? "Unlock" : "Lock"}
+                    {thread.isLocked ? "Unlock" : "Lock"}
                   </Button>
                   <Button
                     variant="destructive"

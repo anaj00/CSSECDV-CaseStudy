@@ -8,7 +8,7 @@ export default function ForumCard({ forum }) {
   const router = useRouter();
 
   function handleClick() {
-    router.push(`/forums/${forum.id}`);
+    router.push(`/forums/${forum._id}`);
   }
 
   return (

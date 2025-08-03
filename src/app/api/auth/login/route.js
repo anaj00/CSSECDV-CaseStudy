@@ -1,11 +1,9 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import User from "@/model/users";
 import RefreshToken from "@/model/refreshtoken";
 import SecurityLog from "@/model/securitylog";
 import { connectToDatabase } from "@/lib/mongodb";
-
 import { getClientIP } from "@/lib/utils";
 
 export async function POST(request) {
@@ -17,101 +15,28 @@ export async function POST(request) {
     const { username, password } = await request.json();
 
     if (!username || !password) {
-      await SecurityLog.logEvent({
-        eventType: "LOGIN_FAILURE",
-        userId: null,
-        username: username || "unknown",
-        ipAddress: clientIP,
-        userAgent,
-        severity: "LOW",
-        details: { reason: "Missing credentials" },
-      });
-
       return NextResponse.json(
-        { error: "Invalid username and/or password" },
+        { error: "Missing credentials" },
         { status: 400 }
       );
     }
 
     const user = await User.findOne({ username }).select("+password");
-    if (!user) {
+    if (!user || !(await user.comparePassword(password))) {
       await SecurityLog.logEvent({
         eventType: "LOGIN_FAILURE",
-        userId: null,
         username,
         ipAddress: clientIP,
         userAgent,
         severity: "MEDIUM",
-        details: { reason: "User not found" },
+        details: { reason: "Invalid credentials" },
       });
 
       return NextResponse.json(
-        { error: "Invalid username and/or password" },
+        { error: "Invalid credentials" },
         { status: 401 }
       );
     }
-
-    if (user.isAccountLocked) {
-      await SecurityLog.logEvent({
-        eventType: "LOGIN_FAILURE",
-        userId: user._id,
-        username: user.username,
-        ipAddress: clientIP,
-        userAgent,
-        severity: "HIGH",
-        details: { reason: "Account locked" },
-      });
-
-      return NextResponse.json(
-        {
-          error:
-            "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
-        },
-        { status: 423 }
-      );
-    }
-
-    if (!user.isActive) {
-      await SecurityLog.logEvent({
-        eventType: "LOGIN_FAILURE",
-        userId: user._id,
-        username: user.username,
-        ipAddress: clientIP,
-        userAgent,
-        severity: "HIGH",
-        details: { reason: "Account inactive" },
-      });
-
-      return NextResponse.json(
-        { error: "Account is inactive" },
-        { status: 403 }
-      );
-    }
-
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      await user.incLoginAttempts();
-
-      await SecurityLog.logEvent({
-        eventType: "LOGIN_FAILURE",
-        userId: user._id,
-        username: user.username,
-        ipAddress: clientIP,
-        userAgent,
-        severity: "MEDIUM",
-        details: {
-          reason: "Invalid password",
-          attemptCount: user.loginAttempts + 1,
-        },
-      });
-
-      return NextResponse.json(
-        { error: "Invalid username and/or password" },
-        { status: 401 }
-      );
-    }
-
-    await user.resetLoginAttempts();
 
     const accessToken = jwt.sign(
       { id: user._id, username: user.username, role: user.role },
@@ -144,10 +69,15 @@ export async function POST(request) {
       details: { loginMethod: "credentials" },
     });
 
-    const cookieStore = await cookies();
-    cookieStore.set({
-      name: "accessToken",
-      value: accessToken,
+    const response = NextResponse.json({
+      message: "Login successful",
+      user: {
+        username: user.username,
+        role: user.role,
+      },
+    });
+
+    response.cookies.set("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -155,9 +85,7 @@ export async function POST(request) {
       maxAge: 60 * 15,
     });
 
-    cookieStore.set({
-      name: "refreshToken",
-      value: refreshToken,
+    response.cookies.set("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -165,40 +93,11 @@ export async function POST(request) {
       maxAge: 60 * 60 * 24 * 7,
     });
 
-    const responseData = {
-      message: "Login successful!",
-      user: {
-        username: user.username,
-        role: user.role,
-      },
-    };
-
-    if (user.previousLogin) {
-      responseData.lastLogin = {
-        timestamp: user.previousLogin,
-        message: `Last login: ${user.previousLogin.toLocaleString()}`,
-      };
-    }
-
-    return NextResponse.json(responseData);
+    return response;
   } catch (error) {
-    console.error("Login API Error:", error);
-
-    await SecurityLog.logEvent({
-      eventType: "LOGIN_FAILURE",
-      userId: null,
-      username: "unknown",
-      ipAddress: clientIP,
-      userAgent,
-      severity: "HIGH",
-      details: {
-        reason: "System error",
-        error: error.message,
-      },
-    });
-
+    console.error("Login error:", error);
     return NextResponse.json(
-      { error: "An error occurred during login" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

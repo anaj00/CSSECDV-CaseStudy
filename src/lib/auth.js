@@ -1,19 +1,15 @@
-import { getToken } from "next-auth/jwt";
 import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 
 export async function getUserFromCookie() {
+  const cookieStore = cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) return null;
+
   try {
-    const cookieStore = await cookies();
-    const cookieHeader = cookieStore.toString();
-
-    const token = await getToken({
-      req: { headers: { cookie: cookieHeader } },
-      secret: process.env.NEXTAUTH_SECRET,
-    });
-
-    return token;
-  } catch (err) {
-    console.error("Failed to parse session token:", err.message);
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
     return null;
   }
 }

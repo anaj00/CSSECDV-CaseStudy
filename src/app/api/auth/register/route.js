@@ -1,137 +1,191 @@
 import { NextResponse } from "next/server";
 import User from "@/model/users";
+import RefreshToken from "@/model/refreshtoken";
 import SecurityLog from "@/model/securitylog";
 import jwt from "jsonwebtoken";
-import { cookies } from "next/headers";
 import { connectToDatabase } from "@/lib/mongodb";
-
 import { getClientIP } from "@/lib/utils";
 
 export async function POST(request) {
   const clientIP = getClientIP(request);
-  const userAgent = request.headers.get('user-agent') || 'unknown';
-  
+  const userAgent = request.headers.get("user-agent") || "unknown";
+
   try {
     await connectToDatabase();
-    
+
     const { username, email, password, role } = await request.json();
 
     if (!username || !email || !password) {
       await SecurityLog.logEvent({
-        eventType: 'VALIDATION_FAILURE',
-        username: username || 'unknown',
+        eventType: "VALIDATION_FAILURE",
+        username: username || "unknown",
         ipAddress: clientIP,
-        userAgent: userAgent,
-        details: { reason: 'Missing required fields' },
-        severity: 'LOW'
+        userAgent,
+        details: { reason: "Missing required fields" },
+        severity: "LOW",
       });
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "All fields are required" },
+        { status: 400 }
+      );
     }
 
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       await SecurityLog.logEvent({
-        eventType: 'REGISTRATION',
-        username: username,
+        eventType: "REGISTRATION",
+        username,
         ipAddress: clientIP,
-        userAgent: userAgent,
-        details: { reason: 'User already exists', email: email },
-        severity: 'LOW'
+        userAgent,
+        details: { reason: "User already exists", email },
+        severity: "LOW",
       });
-      return NextResponse.json({ error: "Username or email already exists" }, { status: 409 });
+      return NextResponse.json(
+        { error: "Username or email already exists" },
+        { status: 409 }
+      );
     }
 
-    let userRole = 'user';
-    if (role && ['admin', 'moderator'].includes(role)) {
-      userRole = role;
-    }
+    const userRole =
+      role && ["admin", "moderator"].includes(role) ? role : "user";
 
-    const newUser = new User({ 
-      username, 
-      email, 
+    const newUser = new User({
+      username,
+      email,
       password,
-      role: userRole
+      role: userRole,
     });
     await newUser.save();
 
+    const accessToken = jwt.sign(
+      { id: newUser._id, username: newUser.username, role: newUser.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: newUser._id },
+      process.env.REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    await RefreshToken.create({
+      user: newUser._id,
+      token: refreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      ip: clientIP,
+      userAgent,
+    });
+
     await SecurityLog.logEvent({
-      eventType: 'REGISTRATION',
+      eventType: "REGISTRATION",
       userId: newUser._id,
       username: newUser.username,
       ipAddress: clientIP,
-      userAgent: userAgent,
+      userAgent,
       details: { email: newUser.email, role: newUser.role },
-      severity: 'LOW'
+      severity: "LOW",
     });
 
-    const token = jwt.sign(
-      { id: newUser._id, username: newUser.username, role: newUser.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+    await SecurityLog.logEvent({
+      eventType: "LOGIN_SUCCESS",
+      userId: newUser._id,
+      username: newUser.username,
+      ipAddress: clientIP,
+      userAgent,
+      severity: "LOW",
+      details: { loginMethod: "auto-login after registration" },
+    });
+
+    const response = NextResponse.json(
+      {
+        message: "Registered successfully",
+        user: {
+          username: newUser.username,
+          role: newUser.role,
+        },
+      },
+      { status: 201 }
     );
 
-    const cookieStore = await cookies();
-    cookieStore.set({
-      name: "accessToken",
-      value: token,
+    response.cookies.set("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       path: "/",
-      maxAge: 60 * 60 * 24,
+      maxAge: 60 * 15,
     });
 
-    return NextResponse.json({ message: "Registered successfully", user: { username: newUser.username, role: newUser.role } }, { status: 201 });
+    response.cookies.set("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/api/auth/refresh",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error) {
     console.error("Registration error:", error);
-    
-    if (error.name === 'ValidationError') {
+
+    if (error.name === "ValidationError") {
       const validationErrors = {};
       for (const field in error.errors) {
         validationErrors[field] = error.errors[field].message;
       }
-      
+
       await SecurityLog.logEvent({
-        eventType: 'VALIDATION_FAILURE',
-        username: 'unknown',
+        eventType: "VALIDATION_FAILURE",
+        username: "unknown",
         ipAddress: clientIP,
-        userAgent: userAgent,
+        userAgent,
         details: { validationErrors },
-        severity: 'LOW'
+        severity: "LOW",
       });
-      
-      return NextResponse.json({ 
-        error: "Validation failed", 
-        details: validationErrors 
-      }, { status: 400 });
+
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: validationErrors,
+        },
+        { status: 400 }
+      );
     }
-    
+
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
-      
+
       await SecurityLog.logEvent({
-        eventType: 'VALIDATION_FAILURE',
-        username: 'unknown',
+        eventType: "VALIDATION_FAILURE",
+        username: "unknown",
         ipAddress: clientIP,
-        userAgent: userAgent,
+        userAgent,
         details: { reason: `Duplicate ${field}`, field },
-        severity: 'LOW'
+        severity: "LOW",
       });
-      
-      return NextResponse.json({ 
-        error: `${field.charAt(0).toUpperCase() + field.slice(1)} already exists` 
-      }, { status: 409 });
+
+      return NextResponse.json(
+        {
+          error: `${
+            field.charAt(0).toUpperCase() + field.slice(1)
+          } already exists`,
+        },
+        { status: 409 }
+      );
     }
-    
+
     await SecurityLog.logEvent({
-      eventType: 'REGISTRATION',
-      username: 'unknown',
+      eventType: "REGISTRATION",
+      username: "unknown",
       ipAddress: clientIP,
-      userAgent: userAgent,
-      details: { reason: 'System error', error: error.message },
-      severity: 'HIGH'
+      userAgent,
+      details: { reason: "System error", error: error.message },
+      severity: "HIGH",
     });
-    
-    return NextResponse.json({ error: "An error occurred during registration" }, { status: 500 });
+
+    return NextResponse.json(
+      { error: "An error occurred during registration" },
+      { status: 500 }
+    );
   }
 }

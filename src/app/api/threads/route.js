@@ -4,6 +4,11 @@ import { getUserFromCookie } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import SecurityLog from '@/model/securitylog';
 
+function toObjectId(id) {
+  if (!ObjectId.isValid(id)) throw new Error('Invalid ObjectId');
+  return ObjectId.createFromHexString(id);
+}
+
 // GET ALL THREADS
 export async function GET(request) {
   const db = await connectToDatabase();
@@ -73,46 +78,51 @@ export async function PUT(request) {
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const thread = await db.collection('threads').findOne({ _id: new ObjectId(id) });
-  if (!thread || (thread.createdBy !== user.id && user.role !== 'admin')) {
+  try {
+    const objectId = toObjectId(id);
+    const thread = await db.collection('threads').findOne({ _id: objectId });
+    if (!thread || (thread.createdBy !== user.id && user.role !== 'admin')) {
+      await SecurityLog.logEvent({
+        eventType: 'THREAD_FORBIDDEN_ACCESS',
+        userId: user.id,
+        username: user.username,
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        details: { attemptedThreadId: id, action: 'update' },
+        severity: 'HIGH'
+      });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    await db.collection('threads').updateOne(
+      { _id: objectId },
+      {
+        $set: {
+          ...(title && { title }),
+          ...(content && { content }),
+          ...(tags && { tags }),
+          ...(typeof isPinned === 'boolean' && { isPinned }),
+          ...(typeof isLocked === 'boolean' && { isLocked }),
+          updatedAt: new Date()
+        }
+      }
+    );
+
     await SecurityLog.logEvent({
-      eventType: 'THREAD_FORBIDDEN_ACCESS',
+      eventType: 'THREAD_UPDATED',
       userId: user.id,
       username: user.username,
       ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
       userAgent: request.headers.get('user-agent') || 'unknown',
-      details: { attemptedThreadId: id, action: 'update' },
-      severity: 'HIGH'
+      details: { threadId: id, updatedFields: { title, content, tags, isPinned, isLocked } },
+      severity: 'LOW'
     });
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const updated = await db.collection('threads').findOne({ _id: objectId });
+    return NextResponse.json(updated);
+  } catch (err) {
+    return NextResponse.json({ error: 'Invalid thread ID' }, { status: 400 });
   }
-
-  await db.collection('threads').updateOne(
-    { _id: new ObjectId(id) },
-    {
-      $set: {
-        ...(title && { title }),
-        ...(content && { content }),
-        ...(tags && { tags }),
-        ...(typeof isPinned === 'boolean' && { isPinned }),
-        ...(typeof isLocked === 'boolean' && { isLocked }),
-        updatedAt: new Date()
-      }
-    }
-  );
-
-  await SecurityLog.logEvent({
-    eventType: 'THREAD_UPDATED',
-    userId: user.id,
-    username: user.username,
-    ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-    userAgent: request.headers.get('user-agent') || 'unknown',
-    details: { threadId: id, updatedFields: { title, content, tags, isPinned, isLocked } },
-    severity: 'LOW'
-  });
-
-  const updated = await db.collection('threads').findOne({ _id: new ObjectId(id) });
-  return NextResponse.json(updated);
 }
 
 // DELETE THREAD
@@ -123,31 +133,36 @@ export async function DELETE(request) {
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const thread = await db.collection('threads').findOne({ _id: new ObjectId(id) });
-  if (!thread || (thread.createdBy !== user.id && user.role !== 'admin')) {
+  try {
+    const objectId = toObjectId(id);
+    const thread = await db.collection('threads').findOne({ _id: objectId });
+    if (!thread || (thread.createdBy !== user.id && user.role !== 'admin')) {
+      await SecurityLog.logEvent({
+        eventType: 'THREAD_FORBIDDEN_ACCESS',
+        userId: user.id,
+        username: user.username,
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        details: { attemptedThreadId: id, action: 'delete' },
+        severity: 'HIGH'
+      });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    await db.collection('threads').deleteOne({ _id: objectId });
+
     await SecurityLog.logEvent({
-      eventType: 'THREAD_FORBIDDEN_ACCESS',
+      eventType: 'THREAD_DELETED',
       userId: user.id,
       username: user.username,
       ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
       userAgent: request.headers.get('user-agent') || 'unknown',
-      details: { attemptedThreadId: id, action: 'delete' },
-      severity: 'HIGH'
+      details: { threadId: id, title: thread.title },
+      severity: 'MEDIUM'
     });
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    return NextResponse.json({ message: 'Thread deleted' });
+  } catch (err) {
+    return NextResponse.json({ error: 'Invalid thread ID' }, { status: 400 });
   }
-
-  await db.collection('threads').deleteOne({ _id: new ObjectId(id) });
-
-  await SecurityLog.logEvent({
-    eventType: 'THREAD_DELETED',
-    userId: user.id,
-    username: user.username,
-    ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-    userAgent: request.headers.get('user-agent') || 'unknown',
-    details: { threadId: id, title: thread.title },
-    severity: 'MEDIUM'
-  });
-
-  return NextResponse.json({ message: 'Thread deleted' });
 }

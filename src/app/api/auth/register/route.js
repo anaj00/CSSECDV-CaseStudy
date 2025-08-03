@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import User from "@/model/users";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
+import connectToDatabase from "@/lib/mongodb";
 
 export async function POST(request) {
   try {
+    await connectToDatabase();
     const { username, email, password } = await request.json();
 
     // Check required fields
@@ -29,7 +31,8 @@ export async function POST(request) {
       { expiresIn: "1d" }
     );
 
-    cookies().set({
+    const cookieStore = await cookies();
+    cookieStore.set({
       name: "token",
       value: token,
       httpOnly: true,

@@ -206,7 +206,7 @@ export async function DELETE(request, { params }) {
     await connectToDatabase();
 
     const user = await getUserFromCookie();
-    const { id } = params;
+    const { id } = await params;
 
     if (!user) {
       await SecurityLog.logEvent({

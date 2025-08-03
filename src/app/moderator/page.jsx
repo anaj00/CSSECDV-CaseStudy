@@ -15,6 +15,40 @@ export default function ModeratorDashboard() {
   const [loadingData, setLoadingData] = useState(true);
   const router = useRouter();
 
+  async function handleDeleteForum(forumId) {
+    if (!confirm('Are you sure you want to delete this forum?')) return;
+
+    try {
+      const res = await fetch(`/api/forums/${forumId}`, { method: 'DELETE' });
+
+      if (!res.ok) throw new Error('Failed to delete forum');
+
+      setForums(prev => prev.filter(f => f._id !== forumId));
+    } catch (err) {
+      console.error('Delete forum error:', err);
+      alert('Error deleting forum');
+    }
+  }
+
+  async function handleDeleteThread(threadId) {
+    if (!confirm('Are you sure you want to delete this thread?')) return;
+
+    try {
+      const res = await fetch(`/api/threads/${threadId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: threadId }),
+      });
+
+      if (!res.ok) throw new Error('Failed to delete thread');
+
+      setThreads(prev => prev.filter(t => t._id !== threadId));
+    } catch (err) {
+      console.error('Delete thread error:', err);
+      alert('Error deleting thread');
+    }
+  }
+
   useEffect(() => {
     if (!authLoading) {
       if (!user) router.push("/login");
@@ -107,8 +141,13 @@ export default function ModeratorDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {forums.map((forum) => (
             <Card key={forum._id}>
-              <CardContent className="p-4">
+              <CardContent className="p-4 flex justify-between items-center">
+                <div>
                 <p className="font-medium">{forum.title}</p>
+                </div>
+                  <Button variant="destructive" size="sm" onClick={() => handleDeleteForum(forum._id)}>
+                    Delete
+                  </Button>
               </CardContent>
             </Card>
           ))}

@@ -77,7 +77,7 @@ export default function ForumIndexPage() {
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Campus Forums</h1>
+        <h1 className="text-3xl font-bold">Forums</h1>
         <CreateForumModal onCreate={handleForumThread} />
       </div>
 

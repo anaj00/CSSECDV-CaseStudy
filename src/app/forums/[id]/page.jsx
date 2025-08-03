@@ -100,8 +100,11 @@ export default function ForumThreadsPage() {
       {threads.map((thread) => (
         <Card key={thread._id}>
           <CardContent className="p-4 space-y-2">
-            <h2 className="text-lg font-semibold">{thread.title}</h2>
-            <p className="text-gray-600">{thread.content}</p>
+            <div>
+              <h2 className="text-lg font-semibold">{thread.title}</h2>
+              <p className="text-gray-600 -mt-1">{thread.content}</p>
+            </div>
+
             <p className="text-sm text-muted-foreground">
               Posted by {thread.createdBy?.username || "Unknown"}
             </p>

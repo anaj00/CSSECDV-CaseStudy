@@ -1,4 +1,6 @@
 import Link from "next/link";
+import AuthProvider from "@/components/providers/AuthProvider";
+import Navigation from "@/components/Navigation";
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -21,13 +23,11 @@ export const metadata = {
 export default function Layout({ children }) {
   return (
     <html>
-      <body>
-        <nav className="p-4 bg-white shadow flex gap-4">
-          <Link href="/forums">Forums</Link>
-          <Link href="/login">Login</Link>
-          <Link href="/register">Register</Link>
-        </nav>
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <AuthProvider>
+          <Navigation />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

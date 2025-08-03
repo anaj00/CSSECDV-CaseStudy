@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,21 +13,69 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [validationErrors, setValidationErrors] = useState({});
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { user, login, loading: authLoading } = useAuth();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/forums');
+    }
+  }, [user, authLoading, router]);
 
   async function handleRegister(e) {
     e.preventDefault();
+    setLoading(true);
+    setError("");
+    setValidationErrors({});
 
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password }),
-    });
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) return setError(data.error || "Registration failed");
-    router.push("/forums");
+      if (!res.ok) {
+        if (data.details) {
+          // Handle validation errors with specific field messages
+          setValidationErrors(data.details);
+          setError("Please fix the validation errors below");
+        } else {
+          // Handle general errors
+          setError(data.error || "Registration failed");
+        }
+        return;
+      }
+      
+      // Auto-login after successful registration
+      if (data.user) {
+        login(data.user);
+      }
+      router.push("/forums");
+    } catch (error) {
+      setError("An error occurred during registration");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <main className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div>Loading...</div>
+      </main>
+    );
+  }
+
+  // Don't render register form if already authenticated
+  if (user) {
+    return null;
   }
 
   return (
@@ -45,7 +94,11 @@ export default function RegisterPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                className={validationErrors.username ? "border-red-500" : ""}
               />
+              {validationErrors.username && (
+                <p className="text-red-600 text-xs">{validationErrors.username}</p>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Email</Label>
@@ -54,7 +107,11 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className={validationErrors.email ? "border-red-500" : ""}
               />
+              {validationErrors.email && (
+                <p className="text-red-600 text-xs">{validationErrors.email}</p>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Password</Label>
@@ -63,10 +120,17 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className={validationErrors.password ? "border-red-500" : ""}
               />
+              {validationErrors.password && (
+                <p className="text-red-600 text-xs">{validationErrors.password}</p>
+              )}
+              <p className="text-gray-500 text-xs">
+                Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, and one digit.
+              </p>
             </div>
-            <Button type="submit" className="w-full">
-              Create Account
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
         </CardContent>

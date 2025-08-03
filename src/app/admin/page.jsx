@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +28,34 @@ const threads = [
 ];
 
 export default function AdminDashboard() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  // Redirect if not authenticated or not admin
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.push('/login');
+      } else if (user.role !== 'admin') {
+        router.push('/forums');
+      }
+    }
+  }, [user, loading, router]);
+
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <main className="max-w-6xl mx-auto px-6 py-10">
+        <div className="text-center">Loading...</div>
+      </main>
+    );
+  }
+
+  // Don't render content if not authenticated or not admin
+  if (!user || user.role !== 'admin') {
+    return null;
+  }
+
   return (
     <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
       <h1 className="text-3xl font-bold">Admin Dashboard</h1>

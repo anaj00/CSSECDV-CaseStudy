@@ -72,15 +72,16 @@ securityLogSchema.index({ ipAddress: 1, timestamp: -1 });
  * @param {Object} [metadata={}]
  * @returns {Promise<Document>} Saved log document
  */
-securityLogSchema.statics.logEvent = async function (
+securityLogSchema.statics.logEvent = async function ({
   eventType,
-  userId,
+  userId = null,
   username,
   ipAddress,
   userAgent,
   severity = "LOW",
-  metadata = {}
-) {
+  details = {},
+  sessionId = null,
+}) {
   const log = new this({
     eventType,
     userId,
@@ -88,11 +89,13 @@ securityLogSchema.statics.logEvent = async function (
     ipAddress,
     userAgent,
     severity,
-    details: metadata
+    details,
+    sessionId,
   });
 
   return await log.save();
 };
+
 
 /**
  * Counts recent failed login attempts from a user or IP.
@@ -115,7 +118,7 @@ securityLogSchema.statics.getRecentFailedAttempts = async function (
 };
 
 // Export the model
-const SecurityLog =
-  mongoose.models.SecurityLog || mongoose.model("SecurityLog", securityLogSchema);
+delete mongoose.models.SecurityLog; // ensures fresh model
+const SecurityLog = mongoose.model("SecurityLog", securityLogSchema);
 
 export default SecurityLog;

@@ -8,9 +8,6 @@ import { getUserFromCookie } from "@/lib/auth";
 
 /**
  * Validate if the provided ID is a valid MongoDB ObjectId
- *
- * @param {string} id The ID to validate
- * @returns {boolean} True if valid, false otherwise
  */
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -21,20 +18,20 @@ function isValidObjectId(id) {
  * Retrieve all threads for a specific forum with pagination
  */
 export async function GET(request, context) {
-  const { id } = await context.params;
+  const { id: forumId } = context.params;
   const clientIP = getClientIP(request);
 
   try {
     await connectToDatabase();
 
-    if (!isValidObjectId(id)) {
+    if (!isValidObjectId(forumId)) {
       return NextResponse.json(
         { success: false, error: "Invalid forum ID format" },
         { status: 400 }
       );
     }
 
-    const forum = await Forum.findById(id);
+    const forum = await Forum.findById(forumId);
     if (!forum) {
       return NextResponse.json(
         { success: false, error: "Forum not found" },
@@ -51,15 +48,12 @@ export async function GET(request, context) {
 
     const skip = (page - 1) * limit;
 
-    let query = { forum: id };
+    let query = { forum: forumId };
     if (search) {
-      query = {
-        ...query,
-        $or: [
-          { title: { $regex: search, $options: "i" } },
-          { content: { $regex: search, $options: "i" } },
-        ],
-      };
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { content: { $regex: search, $options: "i" } },
+      ];
     }
 
     const threads = await Thread.find(query)
@@ -103,9 +97,12 @@ export async function GET(request, context) {
   }
 }
 
-// POST /api/forums/[id]/threads
+/**
+ * POST /api/forums/[id]/threads
+ * Create a new thread in a specific forum
+ */
 export async function POST(request, context) {
-  const { id } = await context.params;
+  const { id: forumId } = context.params;
   const user = await getUserFromCookie();
 
   if (!user) {
@@ -119,13 +116,17 @@ export async function POST(request, context) {
     const newThread = await Thread.create({
       title: body.title,
       content: body.content,
-      forum: id,
+      forum: forumId,
       createdBy: user.id,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
-    return NextResponse.json({ data: newThread }, { status: 201 });
+    const populatedThread = await Thread.findById(newThread._id)
+      .populate("createdBy", "username")
+      .lean();
+
+    return NextResponse.json({ data: populatedThread }, { status: 201 });
   } catch (err) {
     console.error("Error creating thread:", err);
     return NextResponse.json(

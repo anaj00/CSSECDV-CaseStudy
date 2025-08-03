@@ -103,7 +103,7 @@ export default function ForumThreadsPage() {
             <h2 className="text-lg font-semibold">{thread.title}</h2>
             <p className="text-gray-600">{thread.content}</p>
             <p className="text-sm text-muted-foreground">
-              Posted by {thread.author?.username || "Unknown"}
+              Posted by {thread.createdBy?.username || "Unknown"}
             </p>
             <div className="flex justify-end">
               <Button

@@ -1,64 +1,113 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import CreateThreadModal from "@/components/thread/CreateThreadModal";
 
-// Dummy threads with forumId
-const dummyThreads = [
-  {
-    id: 1,
-    forumId: 1,
-    title: "Welcome to the forum!",
-    content: "This is the first thread. Feel free to reply.",
-    author: "admin",
-  },
-  {
-    id: 2,
-    forumId: 2,
-    title: "Introduce yourself",
-    content: "Let's get to know each other.",
-    author: "moderator1",
-  },
-  {
-    id: 3,
-    forumId: 1,
-    title: "Event this Friday",
-    content: "Join us for the campus welcome event!",
-    author: "staff",
-  },
-];
-
+/**
+ * Forum detail page that shows all threads in a forum.
+ * Includes "Create Thread" modal and protected access.
+ */
 export default function ForumThreadsPage({ params }) {
-  const forumId = params.id;
   const router = useRouter();
+  const forumId = params.id;
 
-  // ✅ Put it here
-  const forumThreads = dummyThreads.filter(
-    (thread) => thread.forumId.toString() === forumId
-  );
+  const { user, loading } = useAuth();
+  const [forumTitle, setForumTitle] = useState("Forum");
+  const [threads, setThreads] = useState([]);
+  const [fetching, setFetching] = useState(true);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
+
+  // Fetch forum data and threads
+  useEffect(() => {
+    const fetchThreads = async () => {
+      try {
+        const res = await fetch(`/api/forums/${forumId}/threads`);
+        const data = await res.json();
+
+        if (res.ok) {
+          setThreads(data.data);
+          setForumTitle(data.forum?.title || "Forum");
+        } else {
+          console.error(data.error || "Failed to load threads");
+        }
+      } catch (err) {
+        console.error("Error fetching threads:", err);
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    if (user) fetchThreads();
+  }, [user, forumId]);
+
+  // Handle creation of a new thread
+  async function handleCreateThread(title, content) {
+    try {
+      const res = await fetch(`/api/forums/${forumId}/threads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title, content }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to create thread");
+        return;
+      }
+
+      // Append new thread to the list
+      setThreads((prev) => [data.data, ...prev]);
+    } catch (err) {
+      console.error("Error creating thread:", err);
+      alert("Failed to create thread");
+    }
+  }
+
+  if (loading || fetching) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-10">
+        <div className="text-center">Loading...</div>
+      </main>
+    );
+  }
+
+  if (!user) return null;
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
-      <h1 className="text-2xl font-bold mb-6">Threads in Forum {forumId}</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">{forumTitle}</h1>
+        <CreateThreadModal onCreate={handleCreateThread} />
+      </div>
 
-      {forumThreads.length === 0 && (
+      {threads.length === 0 && (
         <p className="text-gray-600 italic">No threads yet in this forum.</p>
       )}
 
-      {forumThreads.map((thread) => (
-        <Card key={thread.id}>
+      {threads.map((thread) => (
+        <Card key={thread._id}>
           <CardContent className="p-4 space-y-2">
             <h2 className="text-lg font-semibold">{thread.title}</h2>
             <p className="text-gray-600">{thread.content}</p>
             <p className="text-sm text-muted-foreground">
-              Posted by {thread.author}
+              Posted by {thread.author?.username || "Unknown"}
             </p>
             <div className="flex justify-end">
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => router.push(`/threads/${thread.id}`)}
+                onClick={() => router.push(`/threads/${thread._id}`)}
               >
                 View Replies
               </Button>

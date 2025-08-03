@@ -1,81 +1,78 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/providers/AuthProvider';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
 import ForumCard from "@/components/forum/ForumCard";
 import CreateForumModal from "@/components/forum/CreateForumModel";
 
-const dummyForums = [
-  { id: 1, name: "Announcements", description: "Official news and updates." },
-  { id: 2, name: "Q&A", description: "Ask questions and get help." },
-  { id: 3, name: "General Discussion", description: "Talk about anything." },
-];
-
-/**
- * Forum index page component that displays a list of available forums.
- * Requires user authentication - redirects to login if not authenticated.
- * Shows a loading state while authentication status is being determined.
- * 
- * @returns {JSX.Element} The forum index page with forum cards and create thread modal
- */
 export default function ForumIndexPage() {
-  const router = useRouter();
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const [forums, setForums] = useState([]);
+  const [isLoadingForums, setIsLoadingForums] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push("/login");
     }
-  }, [user, loading, router]);
+  }, [loading, user, router]);
 
-  /**
-   * Handles the creation of a new thread with the provided title and content.
-   * Currently logs the thread data to console for development purposes.
-   * 
-   * @param {string} title - The title of the new thread
-   * @param {string} content - The content/body of the new thread
-   */
+  useEffect(() => {
+    if (user) {
+      fetchForums();
+    }
+  }, [user]);
+
+  async function fetchForums() {
+    setIsLoadingForums(true);
+    try {
+      const res = await fetch("/api/forums");
+      const data = await res.json();
+      if (res.ok) {
+        setForums(data.data); // `data` from { data: forums }
+      } else {
+        console.error("Failed to fetch forums:", data.error);
+      }
+    } catch (err) {
+      console.error("Error fetching forums:", err);
+    } finally {
+      setIsLoadingForums(false);
+    }
+  }
+
   async function handleForumThread(title, content) {
     try {
-      const response = await fetch("/api/forums", {
+      const res = await fetch("/api/forums", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ title, description: content }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error("Failed to create forum:", data.error || "Unknown error");
-        alert(data.error || "Something went wrong");
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to create forum");
         return;
       }
 
-      console.log("Forum created:", data);
-      router.refresh();
-
+      // Re-fetch forums after creation
+      fetchForums();
     } catch (err) {
       console.error("Error creating forum:", err);
       alert("Failed to create forum");
     }
   }
 
-
-  if (loading) {
+  if (loading || isLoadingForums) {
     return (
       <main className="max-w-4xl mx-auto px-4 py-10">
-        <div className="text-center">Loading...</div>
+        <p className="text-center text-gray-500">Loading...</p>
       </main>
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
@@ -84,11 +81,15 @@ export default function ForumIndexPage() {
         <CreateForumModal onCreate={handleForumThread} />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {dummyForums.map((forum) => (
-          <ForumCard key={forum.id} forum={forum} />
-        ))}
-      </div>
+      {forums.length === 0 ? (
+        <p className="text-gray-600 italic">No forums yet. Create one!</p>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-6">
+          {forums.map((forum) => (
+            <ForumCard key={forum._id} forum={forum} />
+          ))}
+        </div>
+      )}
     </main>
   );
 }

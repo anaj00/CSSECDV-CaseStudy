@@ -42,7 +42,7 @@ export async function POST(request) {
     }
 
     let userRole = 'user';
-    if (role && ['admin', 'manager'].includes(role)) {
+    if (role && ['admin', 'moderator'].includes(role)) {
       userRole = role;
     }
 

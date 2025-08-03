@@ -75,8 +75,6 @@ export default function AdminDashboard() {
     }
   }
 
-
-
   // Redirect if not authenticated or not admin
   useEffect(() => {
     if (!authLoading) {
@@ -197,21 +195,28 @@ export default function AdminDashboard() {
       <section>
         <h2 className="text-xl font-semibold mb-4">Threads</h2>
         <div className="space-y-4">
-          {threads.map((thread) => (
-            <Card key={thread._id}>
-              <CardContent className="p-4 flex justify-between items-center">
-                <div>
-                  <p className="font-medium">{thread.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {thread?.createdBy?.username || "Unknown"}
-                  </p>
-                </div>
-                <Button variant="destructive" size="sm">
-                  Delete
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {threads.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No threads available.</p>
+          ) : (
+            threads.map((thread) => (
+              <Card key={thread._id}>
+                <CardContent className="p-4 flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{thread.title || "Untitled Thread"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {thread.author?.createdBy?.username || "Unknown"} •{" "}
+                      <span className="text-xs">
+                        {new Date(thread.createdAt).toLocaleString()}
+                      </span>
+                    </p>
+                  </div>
+                  <Button variant="destructive" size="sm">
+                    Delete
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </section>
 

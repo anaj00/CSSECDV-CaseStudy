@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,10 @@ import CreateThreadModal from "@/components/thread/CreateThreadModal";
  * Forum detail page that shows all threads in a forum.
  * Includes "Create Thread" modal and protected access.
  */
-export default function ForumThreadsPage({ params }) {
+export default function ForumThreadsPage() {
   const router = useRouter();
+
+  const params = useParams();
   const forumId = params.id;
 
   const { user, loading } = useAuth();
@@ -35,7 +37,7 @@ export default function ForumThreadsPage({ params }) {
         const data = await res.json();
 
         if (res.ok) {
-          setThreads(data.data);
+          setThreads(data.data.threads || []);
           setForumTitle(data.forum?.title || "Forum");
         } else {
           console.error(data.error || "Failed to load threads");

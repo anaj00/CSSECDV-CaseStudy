@@ -18,12 +18,28 @@ export default function CreateThreadModal({ onCreate }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleSubmit = () => {
-    onCreate(title, content);
-    setTitle("");
-    setContent("");
-    setOpen(false);
+  const handleSubmit = async () => {
+    if (!title.trim() || !content.trim()) {
+      setError("Title and content are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await onCreate(title.trim(), content.trim());
+      setTitle("");
+      setContent("");
+      setOpen(false);
+    } catch (err) {
+      setError("Failed to create thread.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -35,6 +51,7 @@ export default function CreateThreadModal({ onCreate }) {
         <DialogHeader>
           <DialogTitle>Create New Thread</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-4 py-2">
           <div className="space-y-1">
             <Label htmlFor="title">Title</Label>
@@ -42,8 +59,10 @@ export default function CreateThreadModal({ onCreate }) {
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder="Enter thread title"
             />
           </div>
+
           <div className="space-y-1">
             <Label htmlFor="content">Content</Label>
             <Textarea
@@ -51,11 +70,17 @@ export default function CreateThreadModal({ onCreate }) {
               rows={5}
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              placeholder="Enter your post content"
             />
           </div>
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
         </div>
+
         <DialogFooter>
-          <Button onClick={handleSubmit}>Post</Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Posting..." : "Post"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

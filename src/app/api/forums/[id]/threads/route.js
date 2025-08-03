@@ -3,8 +3,9 @@ import Forum from "@/model/forum";
 import Thread from "@/model/thread";
 import { connectToDatabase } from "@/lib/mongodb";
 import mongoose from "mongoose";
-
 import { getClientIP } from "@/lib/utils";
+
+import { getUserFromCookie } from "@/lib/auth";
 
 /**
  * Validate if the provided ID is a valid MongoDB ObjectId
@@ -20,13 +21,12 @@ function isValidObjectId(id) {
  * GET /api/forums/[id]/threads
  * Retrieve all threads for a specific forum with pagination
  */
-export async function GET(request, { params }) {
+export async function GET(request, context) {
+  const { id } = await context.params;
   const clientIP = getClientIP(request);
-  
+
   try {
     await connectToDatabase();
-    
-    const { id } = params;
 
     // Validate ObjectId
     if (!isValidObjectId(id)) {
@@ -46,37 +46,34 @@ export async function GET(request, { params }) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page')) || 1;
-    const limit = parseInt(searchParams.get('limit')) || 10;
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
-    const search = searchParams.get('search') || '';
+    const page = parseInt(searchParams.get("page")) || 1;
+    const limit = parseInt(searchParams.get("limit")) || 10;
+    const sortBy = searchParams.get("sortBy") || "createdAt";
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
+    const search = searchParams.get("search") || "";
 
-    // Calculate skip value for pagination
     const skip = (page - 1) * limit;
 
-    // Build search query
+    // Search query
     let query = { forum: id };
     if (search) {
       query = {
         ...query,
         $or: [
-          { title: { $regex: search, $options: 'i' } },
-          { content: { $regex: search, $options: 'i' } }
-        ]
+          { title: { $regex: search, $options: "i" } },
+          { content: { $regex: search, $options: "i" } },
+        ],
       };
     }
 
-    // Get threads with population of creator info
     const threads = await Thread.find(query)
-      .populate('createdBy', 'username email')
-      .populate('forum', 'title')
+      .populate("createdBy", "username")
+      .populate("forum", "title")
       .sort({ [sortBy]: sortOrder })
       .skip(skip)
       .limit(limit)
       .lean();
 
-    // Get total count for pagination
     const total = await Thread.countDocuments(query);
 
     return NextResponse.json({
@@ -85,27 +82,53 @@ export async function GET(request, { params }) {
         forum: {
           id: forum._id,
           title: forum.title,
-          description: forum.description
+          description: forum.description,
         },
         threads,
         pagination: {
           page,
           limit,
           total,
-          pages: Math.ceil(total / limit)
-        }
-      }
+          pages: Math.ceil(total / limit),
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Error fetching forum threads:', error);
+    console.error("Error fetching forum threads:", error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: "Failed to fetch forum threads",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       },
       { status: 500 }
     );
   }
 }
+
+export async function POST(request, context) {
+  const { id } = await context.params;
+  const user = await getUserFromCookie(); // make sure this is async if needed
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const db = await connectToDatabase();
+  const body = await request.json();
+
+  const newThread = {
+    title: body.title,
+    content: body.content,
+    forum: id,
+    createdBy: user.id,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const result = await db.collection("threads").insertOne(newThread);
+
+  return NextResponse.json({ data: { ...newThread, _id: result.insertedId } });
+}
+

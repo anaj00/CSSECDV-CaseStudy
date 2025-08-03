@@ -1,9 +1,12 @@
-'use client';
+"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { Button } from "@/components/ui/button";
 
 export default function Navigation() {
+  const router = useRouter();
   const { user, loading, loggingOut, logout } = useAuth();
 
   if (loading) {
@@ -17,26 +20,51 @@ export default function Navigation() {
   return (
     <nav className="p-4 bg-white shadow flex gap-4 items-center justify-between">
       <div className="flex gap-4">
-        <Link href="/" className="font-bold text-blue-600">Home</Link>
-        {user && <Link href="/forums">Forums</Link>}
-        {user?.role === 'admin' && <Link href="/admin">Admin</Link>}
+        <Button
+          variant="link"
+          onClick={() => router.push("/")}
+          className="text-blue-600 p-0"
+        >
+          Home
+        </Button>
+        {user && (
+          <Button
+            variant="link"
+            onClick={() => router.push("/forums")}
+            className="p-0"
+          >
+            Forums
+          </Button>
+        )}
+        {user?.role === "admin" && (
+          <Button
+            variant="link"
+            onClick={() => router.push("/admin")}
+            className="p-0"
+          >
+            Admin
+          </Button>
+        )}
       </div>
+
       <div className="flex gap-4 items-center">
         {user ? (
           <>
             <span className="text-gray-600">Welcome, {user.username}</span>
-            <button 
+            <Button
               onClick={logout}
               disabled={loggingOut}
-              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-red-500 hover:bg-red-600 text-white"
             >
               {loggingOut ? "Logging out..." : "Logout"}
-            </button>
+            </Button>
           </>
         ) : (
           <>
-            <Link href="/login">Login</Link>
-            <Link href="/register">Register</Link>
+            <Button onClick={() => router.push("/login")}>Login</Button>
+            <Button variant="outline" onClick={() => router.push("/register")}>
+              Register
+            </Button>
           </>
         )}
       </div>

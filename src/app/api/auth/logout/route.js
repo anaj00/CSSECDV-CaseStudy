@@ -5,6 +5,8 @@ import RefreshToken from "@/model/refreshtoken";
 import SecurityLog from "@/model/securitylog";
 import { connectToDatabase } from "@/lib/mongodb";
 
+import { getClientIP } from "@/lib/utils";
+
 export async function POST(request) {
   try {
     await connectToDatabase();
@@ -50,17 +52,15 @@ export async function POST(request) {
     }
 
     // Log the logout event
-    await SecurityLog.logEvent(
-      'LOGOUT',
-      userId,
-      username,
-      request.headers.get('x-forwarded-for')?.split(',')[0] || 
-        request.headers.get('x-real-ip') || 
-        'unknown',
-      request.headers.get('user-agent') || 'unknown',
-      'LOW',
-      { reason: 'User initiated logout' }
-    );
+    await SecurityLog.logEvent({
+      eventType: "LOGOUT",
+      username: username,
+      userId: userId,
+      ipAddress: getClientIP(request),
+      userAgent: request.headers.get("user-agent") || "unknown",
+      severity: "LOW",
+      details: { message: "User logged out successfully" },
+    });
 
     // Clear all auth cookies
     cookieStore.set("accessToken", "", {

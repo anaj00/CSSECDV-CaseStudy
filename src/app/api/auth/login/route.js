@@ -6,17 +6,7 @@ import RefreshToken from "@/model/refreshtoken";
 import SecurityLog from "@/model/securitylog";
 import { connectToDatabase } from "@/lib/mongodb";
 
-/**
- * Extract client IP address from request headers.
- */
-function getClientIP(request) {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0] ||
-    request.headers.get("x-real-ip") ||
-    request.headers.get("cf-connecting-ip") ||
-    "unknown"
-  );
-}
+import { getClientIP } from "@/lib/utils";
 
 export async function POST(request) {
   const clientIP = getClientIP(request);

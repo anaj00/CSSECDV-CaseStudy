@@ -105,6 +105,16 @@ const userSchema = new Schema({
         type: String,
         default: null,
     },
+    failedAttempts: { 
+        type: Number,
+        default: 0 
+    },
+    lastFailedAttempt: { 
+        type: Date 
+    },
+    lockUntil: { 
+        type: Date 
+    }
 });
 
 /**
@@ -142,7 +152,7 @@ userSchema.method("comparePassword", function(candidatePassword) {
 });
 
 const MAX_LOGIN_ATTEMPTS = 5;
-const LOCK_TIME = 2 * 60 * 60 * 1000;
+const MAX_LOCK_MINUTES = 30;
 
 /**
  * Virtual to check if account is locked
@@ -157,24 +167,26 @@ userSchema.virtual('isAccountLocked').get(function() {
  *
  * @returns {Promise} Promise that resolves to update operation result
  */
-userSchema.method("incLoginAttempts", function() {
-    if (this.lockoutUntil && this.lockoutUntil < Date.now()) {
-        return this.updateOne({
-            $unset: { lockoutUntil: 1 },
-            $set: { loginAttempts: 1 }
-        });
-    }
-    
-    const updates = { $inc: { loginAttempts: 1 } };
-    
-    if (this.loginAttempts + 1 >= MAX_LOGIN_ATTEMPTS && !this.isLocked) {
-        updates.$set = {
-            lockoutUntil: Date.now() + LOCK_TIME,
-            isLocked: true
-        };
-    }
-    
-    return this.updateOne(updates);
+userSchema.method("incLoginAttempts", async function () {
+  const now = Date.now();
+
+  // If lock has expired, reset attempts
+  if (this.lockUntil && this.lockUntil < now) {
+    this.loginAttempts = 1;
+    this.lockUntil = undefined;
+    this.isLocked = false;
+  } else {
+    this.loginAttempts += 1;
+  }
+
+  // Lock if threshold exceeded
+  if (this.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+    const lockMinutes = Math.min(MAX_LOCK_MINUTES, Math.pow(2, this.loginAttempts - MAX_LOGIN_ATTEMPTS));
+    this.lockUntil = new Date(now + lockMinutes * 60 * 1000);
+    this.isLocked = true;
+  }
+
+  await this.save();
 });
 
 /**

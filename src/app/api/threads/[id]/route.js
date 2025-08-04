@@ -7,6 +7,9 @@ import { getUserFromCookie } from "@/lib/auth";
 import SecurityLog from "@/model/securitylog";
 import Reply from "@/model/reply";
 
+function isValidObjectId(id) {
+  return typeof id === "string" && mongoose.Types.ObjectId.isValid(id);
+}
 
 export async function GET(req, context) {
   try {
@@ -43,7 +46,9 @@ export async function GET(req, context) {
 }
 
 // DELETE THREAD
+// TODO: Stil doesnt work
 export async function DELETE(request, { params }) {
+  console.log("✅ Reached DELETE /api/threads/[id]");
   const clientIP = request.headers.get("x-forwarded-for") || "unknown";
   const userAgent = request.headers.get("user-agent") || "unknown";
 
@@ -61,13 +66,11 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Invalid thread ID" }, { status: 400 });
     }
 
-    const thread = await mongoose.connection
-      .collection("threads")
-      .findOne({ _id: new mongoose.Types.ObjectId(id) });
+    const thread = await Thread.findById(id);
 
     const isAdmin = user.role === "admin";
     const isModerator = user.role === "moderator";
-    const isOwner = thread?.createdBy === user.id;
+    const isOwner = thread?.createdBy.toString() === user.id;
 
     if (!thread || (!isOwner && !isAdmin && !isModerator)) {
       await SecurityLog.logEvent({
@@ -82,9 +85,8 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await mongoose.connection
-      .collection("threads")
-      .deleteOne({ _id: new mongoose.Types.ObjectId(id) });
+    await Reply.deleteMany({ thread: id }); // Optional: delete replies too
+    await Thread.findByIdAndDelete(id);
 
     await SecurityLog.logEvent({
       eventType: "THREAD_DELETED",
@@ -105,8 +107,6 @@ export async function DELETE(request, { params }) {
     );
   }
 }
-
-
 
 // EDIT THREAD
 export async function PUT(req, { params }) {

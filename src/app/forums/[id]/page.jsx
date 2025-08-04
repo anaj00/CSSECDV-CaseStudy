@@ -125,7 +125,10 @@ export default function ForumThreadsPage() {
       });
 
       if (!res.ok) throw new Error("Delete failed");
-      setThreads((prev) => prev.filter((t) => t._id !== threadId));
+      setThreads((prev) =>
+        prev.filter((t) => String(t._id) !== String(threadId))
+      );
+
     } catch (err) {
       console.error("Delete error:", err);
     }

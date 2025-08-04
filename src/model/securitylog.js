@@ -58,6 +58,8 @@ const securityLogSchema = new Schema({
       "PASSWORD_RESET_FAILURE",
       "REAUTH_SUCCESS",
       "REAUTH_FAILURE",
+      "DELETE_THREAD_ERROR",
+      "UNAUTHORIZED_DELETE_THREAD_ATTEMPT",
     ],
   },
   userId: {
@@ -102,7 +104,7 @@ securityLogSchema.index({ ipAddress: 1, timestamp: -1 });
 
 /**
  * Logs a new security event.
- * 
+ *
  * @param {String} eventType
  * @param {mongoose.ObjectId | null} userId
  * @param {String} username
@@ -136,10 +138,9 @@ securityLogSchema.statics.logEvent = async function ({
   return await log.save();
 };
 
-
 /**
  * Counts recent failed login attempts from a user or IP.
- * 
+ *
  * @param {String} identifier - IP or username
  * @param {Number} minutes
  * @returns {Promise<Number>}
@@ -153,7 +154,7 @@ securityLogSchema.statics.getRecentFailedAttempts = async function (
   return await this.countDocuments({
     eventType: "LOGIN_FAILURE", // ✅ matches enum
     timestamp: { $gte: since },
-    $or: [{ ipAddress: identifier }, { username: identifier }]
+    $or: [{ ipAddress: identifier }, { username: identifier }],
   });
 };
 

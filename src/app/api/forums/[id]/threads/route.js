@@ -19,7 +19,7 @@ function isValidObjectId(id) {
  */
 export async function GET(request, context) {
 
-  const { id: forumId } = context.params;
+  const { id: forumId } = await context.params;
   const clientIP = getClientIP(request);
 
   try {

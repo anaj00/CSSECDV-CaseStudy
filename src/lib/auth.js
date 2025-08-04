@@ -1,9 +1,22 @@
+// Universal version
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
-export async function getUserFromCookie() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
+export async function getUserFromCookie(request = null) {
+  let token;
+
+  if (request) {
+    // Use cookies from request headers (API routes)
+    const cookieHeader = request.headers.get("cookie");
+    token = cookieHeader
+      ?.split(";")
+      .find((c) => c.trim().startsWith("accessToken="))
+      ?.split("=")[1];
+  } else {
+    // Use Next.js cookie() (for RSCs)
+    const cookieStore = cookies();
+    token = cookieStore.get("accessToken")?.value;
+  }
 
   if (!token) return null;
 

@@ -46,9 +46,7 @@ export async function GET(req, context) {
 }
 
 // DELETE THREAD
-// TODO: Stil doesnt work
 export async function DELETE(request, { params }) {
-  console.log("✅ Reached DELETE /api/threads/[id]");
   const clientIP = request.headers.get("x-forwarded-for") || "unknown";
   const userAgent = request.headers.get("user-agent") || "unknown";
 

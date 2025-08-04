@@ -46,6 +46,7 @@ export default function ForumCard({ forum, onForumDeleted }) {
     if (!res.ok) throw new Error(data.error || "Delete failed");
 
     if (onForumDeleted) onForumDeleted(forumId);
+    window.location.reload();
   }
 
   return (

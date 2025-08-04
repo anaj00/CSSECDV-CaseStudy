@@ -86,7 +86,7 @@ export default function ForumIndexPage() {
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
           {forums.map((forum) => (
-            <ForumCard key={forum._id} forum={forum} />
+            <ForumCard key={forum._id} forum={forum} user={user} />
           ))}
         </div>
       )}

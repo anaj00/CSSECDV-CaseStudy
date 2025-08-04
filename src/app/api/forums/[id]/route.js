@@ -86,7 +86,7 @@ export async function PUT(request, { params }) {
     await connectToDatabase();
     
     // Check authentication
-    const user = getUserFromCookie();
+    const user = await getUserFromCookie();
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Authentication required" },
@@ -114,7 +114,8 @@ export async function PUT(request, { params }) {
     }
 
     // Check if user is the creator or admin
-    if (existingForum.createdBy.toString() !== user.id && user.role !== 'admin') {
+    if (existingForum.createdBy._id.toString() !== user.id.toString() && user.role !== 'admin') {
+      console.log((existingForum.createdBy._id.toString(), user.id.toString()));
       return NextResponse.json(
         { success: false, error: "Unauthorized: You can only edit your own forums" },
         { status: 403 }

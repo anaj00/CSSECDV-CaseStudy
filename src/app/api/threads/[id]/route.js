@@ -13,11 +13,11 @@ function isValidObjectId(id) {
 
 export async function GET(req, context) {
   try {
-    const { id } = context.params || {};
+    const { id } = context.params;
 
     await connectToDatabase();
 
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: "Invalid thread ID" },
         { status: 400 }
@@ -35,11 +35,11 @@ export async function GET(req, context) {
       );
     }
 
-    return NextResponse.json({ success: true, data: thread });
+    return NextResponse.json({ success: true, data: { thread } });
   } catch (error) {
-    console.error("GET /api/threads/[id] failed:", error);
+    console.error("❌ GET /api/threads/[id] failed:", error);
     return NextResponse.json(
-      { success: false, error: "Internal Server Error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

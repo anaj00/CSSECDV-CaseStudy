@@ -90,6 +90,11 @@ export async function POST(request) {
 
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
+      // Update lastFailedAttempt without triggering validation
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { lastFailedAttempt: new Date() } }
+      );
       await user.incLoginAttempts();
 
       await SecurityLog.logEvent({
@@ -171,12 +176,26 @@ export async function POST(request) {
         username: user.username,
         role: user.role,
       },
+      loginInfo: {
+        currentLogin: new Date(),
+        message: `Login successful at ${new Date().toLocaleString()}`,
+        showModal: true // Always show modal for login info
+      }
     };
 
     if (user.previousLogin) {
       responseData.lastLogin = {
         timestamp: user.previousLogin,
         message: `Last login: ${user.previousLogin.toLocaleString()}`,
+      };
+    }
+
+    // Add failed attempt information
+    if (user.lastFailedAttempt) {
+      responseData.securityInfo = {
+        lastFailedAttempt: user.lastFailedAttempt,
+        message: `Last failed login attempt: ${user.lastFailedAttempt.toLocaleString()}`,
+        hasFailedAttempts: true
       };
     }
 

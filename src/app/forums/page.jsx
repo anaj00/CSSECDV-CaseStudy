@@ -5,16 +5,70 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import ForumCard from "@/components/forum/ForumCard";
 import CreateForumModal from "@/components/forum/CreateForumModel";
+import { Button } from "@/components/ui/button";
+
+function LoginSuccessModal({ loginInfo, lastLogin, securityInfo, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+        <h3 className="text-lg font-semibold mb-4">Login Successful</h3>
+        
+        {loginInfo && (
+          <div className="mb-3 p-3 bg-green-50 rounded">
+            <p className="text-sm text-green-800 font-medium">Welcome back!</p>
+            <p className="text-sm text-green-700">{loginInfo.message}</p>
+          </div>
+        )}
+        
+        {lastLogin && (
+          <div className="mb-3 p-3 bg-blue-50 rounded">
+            <p className="text-sm text-blue-800">{lastLogin.message}</p>
+          </div>
+        )}
+        
+        {securityInfo && securityInfo.hasFailedAttempts && (
+          <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+            <p className="text-sm text-yellow-800 font-medium">Security Alert</p>
+            <p className="text-sm text-yellow-700">{securityInfo.message}</p>
+          </div>
+        )}
+        
+        <Button onClick={onClose} className="w-full">
+          Continue
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function ForumIndexPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [forums, setForums] = useState([]);
   const [isLoadingForums, setIsLoadingForums] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginSuccessData, setLoginSuccessData] = useState(null);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
+      return;
+    }
+
+    // Check for login success data in sessionStorage
+    if (user) {
+      const loginData = sessionStorage.getItem('loginSuccessData');
+      if (loginData) {
+        try {
+          const parsedData = JSON.parse(loginData);
+          setLoginSuccessData(parsedData);
+          setShowLoginModal(true);
+          // Clear the data after using it
+          sessionStorage.removeItem('loginSuccessData');
+        } catch (error) {
+          console.error('Failed to parse login success data:', error);
+        }
+      }
     }
   }, [loading, user, router]);
 
@@ -89,6 +143,18 @@ export default function ForumIndexPage() {
             <ForumCard key={forum._id} forum={forum} />
           ))}
         </div>
+      )}
+
+      {showLoginModal && loginSuccessData && (
+        <LoginSuccessModal 
+          loginInfo={loginSuccessData.loginInfo}
+          lastLogin={loginSuccessData.lastLogin}
+          securityInfo={loginSuccessData.securityInfo}
+          onClose={() => {
+            setShowLoginModal(false);
+            setLoginSuccessData(null);
+          }}
+        />
       )}
     </main>
   );

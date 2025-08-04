@@ -55,8 +55,15 @@ export default function RegisterPage() {
       // Auto-login after successful registration
       if (data.user) {
         login(data.user);
+        
+        // Check if user needs to set up security questions
+        if (data.requiresSecuritySetup) {
+          // Use window.location for immediate redirect
+          window.location.href = "/setup-security";
+        } else {
+          window.location.href = "/forums";
+        }
       }
-      router.push("/forums");
     } catch (error) {
       setError("An error occurred during registration");
     } finally {

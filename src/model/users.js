@@ -114,7 +114,27 @@ const userSchema = new Schema({
     },
     lockUntil: { 
         type: Date 
-    }
+    },
+    securityQuestions: [{
+        question: {
+            type: String,
+            enum: [
+                "What is a specific childhood memory that stands out to you?",
+                "What was the name of your first childhood friend?",
+                "What is your oldest sibling's middle name?",
+                "What street did you live on when you were 10 years old?",
+                "What was your childhood nickname that only family used?"
+            ]
+        },
+        answer: {
+            type: String,
+            select: false
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        }
+    }]
 });
 
 /**
@@ -139,6 +159,25 @@ userSchema.pre("save", async function (next) {
         console.error(err);
         return next(err);
     }
+});
+
+userSchema.pre("save", async function (next) {
+    if (this.isModified("securityQuestions")) {
+        console.log('Security questions middleware triggered');
+        console.log('Questions count:', this.securityQuestions.length);
+        for (let i = 0; i < this.securityQuestions.length; i++) {
+            const question = this.securityQuestions[i];
+            console.log(`Question ${i}:`, question.question);
+            console.log(`Answer ${i} exists:`, !!question.answer);
+            if (question.answer && !question.answer.startsWith('$2b$')) {
+                console.log(`Hashing answer ${i}`);
+                const salt = await bcrypt.genSalt(SALT_WORK_FACTOR);
+                question.answer = await bcrypt.hash(question.answer.toLowerCase().trim(), salt);
+                console.log(`Answer ${i} hashed:`, question.answer.startsWith('$2b$'));
+            }
+        }
+    }
+    next();
 });
 
 /**
@@ -169,24 +208,38 @@ userSchema.virtual('isAccountLocked').get(function() {
  */
 userSchema.method("incLoginAttempts", async function () {
   const now = Date.now();
+  const User = this.constructor;
+  
+  let updateData = {};
 
   // If lock has expired, reset attempts
   if (this.lockUntil && this.lockUntil < now) {
-    this.loginAttempts = 1;
-    this.lockUntil = undefined;
-    this.isLocked = false;
+    updateData.loginAttempts = 1;
+    updateData.$unset = { lockUntil: 1 };
+    updateData.isLocked = false;
   } else {
+    updateData.$inc = { loginAttempts: 1 };
+  }
+
+  // Check if we need to lock after incrementing
+  const currentAttempts = this.loginAttempts + 1;
+  if (currentAttempts >= MAX_LOGIN_ATTEMPTS) {
+    const lockMinutes = Math.min(MAX_LOCK_MINUTES, Math.pow(2, currentAttempts - MAX_LOGIN_ATTEMPTS));
+    updateData.lockUntil = new Date(now + lockMinutes * 60 * 1000);
+    updateData.isLocked = true;
+  }
+
+  // Update directly without triggering validation
+  await User.updateOne({ _id: this._id }, updateData);
+  
+  // Update local instance for consistency
+  if (updateData.$inc) {
     this.loginAttempts += 1;
+  } else if (updateData.loginAttempts !== undefined) {
+    this.loginAttempts = updateData.loginAttempts;
   }
-
-  // Lock if threshold exceeded
-  if (this.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-    const lockMinutes = Math.min(MAX_LOCK_MINUTES, Math.pow(2, this.loginAttempts - MAX_LOGIN_ATTEMPTS));
-    this.lockUntil = new Date(now + lockMinutes * 60 * 1000);
-    this.isLocked = true;
-  }
-
-  await this.save();
+  if (updateData.lockUntil) this.lockUntil = updateData.lockUntil;
+  if (updateData.isLocked !== undefined) this.isLocked = updateData.isLocked;
 });
 
 /**
@@ -227,11 +280,19 @@ userSchema.method("canChangePassword", function() {
  * @returns {Promise<Boolean>} True if password was used before, false otherwise
  */
 userSchema.method("isPasswordReused", async function(newPassword) {
+    // First check against current password
+    if (this.password) {
+        const isCurrentMatch = await bcrypt.compare(newPassword, this.password);
+        if (isCurrentMatch) return true;
+    }
+    
+    // Then check against password history
     if (!this.passwordHistory || this.passwordHistory.length === 0) {
         return false;
     }
     
-    for (const historyEntry of this.passwordHistory) {
+    const recentPasswords = this.passwordHistory.slice(-5);
+    for (const historyEntry of recentPasswords) {
         const isMatch = await bcrypt.compare(newPassword, historyEntry.password);
         if (isMatch) return true;
     }

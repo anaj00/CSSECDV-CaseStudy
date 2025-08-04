@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
+import { Dropdown, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 export default function Navigation() {
   const router = useRouter();
@@ -61,16 +62,23 @@ export default function Navigation() {
 
       <div className="flex gap-4 items-center">
         {user ? (
-          <>
-            <span className="text-gray-600">Welcome, {user.username}</span>
-            <Button
+          <Dropdown
+            trigger={
+              <Button variant="ghost" className="text-gray-600">
+                Welcome, {user.username} ▼
+              </Button>
+            }
+          >
+            <DropdownMenuItem onClick={() => router.push("/change-password")}>
+              Change Password
+            </DropdownMenuItem>
+            <DropdownMenuItem 
               onClick={logout}
-              disabled={loggingOut}
-              className="bg-red-500 hover:bg-red-600 text-white"
+              className="text-red-600 hover:bg-red-50"
             >
               {loggingOut ? "Logging out..." : "Logout"}
-            </Button>
-          </>
+            </DropdownMenuItem>
+          </Dropdown>
         ) : (
           <>
             <Button onClick={() => router.push("/login")}>Login</Button>

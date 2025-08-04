@@ -104,6 +104,7 @@ export async function POST(request) {
           username: newUser.username,
           role: newUser.role,
         },
+        requiresSecuritySetup: true,
       },
       { status: 201 }
     );

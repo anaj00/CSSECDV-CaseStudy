@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
+
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -43,6 +44,17 @@ export default function LoginPage() {
       if (response.ok) {
         const data = await response.json();
         login(data.user);
+        
+        // Store login info in sessionStorage and redirect to forums
+        if (data.loginInfo || data.lastLogin || data.securityInfo) {
+          sessionStorage.setItem('loginSuccessData', JSON.stringify({
+            loginInfo: data.loginInfo,
+            lastLogin: data.lastLogin,
+            securityInfo: data.securityInfo
+          }));
+        }
+        
+        // Always redirect to forums after successful login
         router.push('/forums');
       } else {
         const errorData = await response.json();
@@ -151,19 +163,32 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Button
-              variant="link"
-              className="p-0 h-auto font-medium"
-              onClick={() => router.push("/register")}
-              disabled={loading}
-            >
-              Register here
-            </Button>
+          <div className="text-center text-sm space-y-2">
+            <div>
+              <Button
+                variant="link"
+                className="p-0 h-auto font-medium text-blue-600"
+                onClick={() => router.push("/forgot-password")}
+                disabled={loading}
+              >
+                Forgot Password?
+              </Button>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Don't have an account? </span>
+              <Button
+                variant="link"
+                className="p-0 h-auto font-medium"
+                onClick={() => router.push("/register")}
+                disabled={loading}
+              >
+                Register here
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
+
     </main>
   );
 }

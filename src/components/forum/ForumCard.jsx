@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import EditForumModal from "@/components/forum/EditForumModal";
 import DeleteForumModal from "@/components/forum/DeleteForumModal";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { Trash2, Pencil } from "lucide-react";
 
 export default function ForumCard({ forum, onForumDeleted }) {
   const router = useRouter();
@@ -59,14 +60,19 @@ export default function ForumCard({ forum, onForumDeleted }) {
             </Button>
             {canEditOrDelete && (
               <>
-                <Button variant="outline" onClick={() => setEditOpen(true)}>
-                  Edit
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setEditOpen(true)}
+                >
+                  <Pencil className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="destructive"
+                  size="icon"
                   onClick={() => setDeleteOpen(true)}
                 >
-                  Delete
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </>
             )}

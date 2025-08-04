@@ -18,7 +18,6 @@ function isValidObjectId(id) {
  * Retrieve all threads for a specific forum with pagination
  */
 export async function GET(request, context) {
-  console.log("🧪 forumId from params:", context.params?.id);
 
   const { id: forumId } = context.params;
   const clientIP = getClientIP(request);

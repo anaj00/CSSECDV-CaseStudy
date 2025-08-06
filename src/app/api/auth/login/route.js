@@ -33,7 +33,7 @@ export async function POST(request) {
       );
     }
 
-    const user = await User.findOne({ username }).select("+password");
+    const user = await User.findOne({ username }).select("+password").exec();
     if (!user) {
       await SecurityLog.logEvent({
         eventType: "LOGIN_FAILURE",

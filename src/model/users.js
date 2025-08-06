@@ -197,8 +197,9 @@ const MAX_LOCK_MINUTES = 30;
  * Virtual to check if account is locked
  */
 userSchema.virtual('isAccountLocked').get(function() {
-    return !!(this.lockoutUntil && this.lockoutUntil > Date.now());
+  return !!(this.lockUntil && this.lockUntil > Date.now());
 });
+
 
 /**
  * Method to handle login attempts and lockout.
@@ -252,7 +253,7 @@ userSchema.method("resetLoginAttempts", function() {
     return this.updateOne({
         $unset: {
             loginAttempts: 1,
-            lockoutUntil: 1
+            lockUntil: 1
         },
         $set: {
             isLocked: false,

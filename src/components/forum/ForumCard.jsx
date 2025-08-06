@@ -15,10 +15,12 @@ export default function ForumCard({ forum, onForumDeleted }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { user } = useAuth();
 
-  const canEditOrDelete =
+  const isCreator = user?.id?.toString() === forum.createdBy._id?.toString();
+  const canEdit = isCreator;
+  const canDelete =
     user?.role === "admin" ||
     user?.role === "moderator" ||
-    user?.id?.toString() === forum.createdBy._id?.toString();
+    isCreator;
 
   function handleClick() {
     router.push(`/forums/${forum._id}`);
@@ -59,40 +61,48 @@ export default function ForumCard({ forum, onForumDeleted }) {
             <Button variant="outline" onClick={handleClick}>
               View Threads
             </Button>
-            {canEditOrDelete && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setEditOpen(true)}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </>
+
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+            )}
+
+            {canDelete && (
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             )}
           </div>
         </CardContent>
       </Card>
 
-      <EditForumModal
-        forum={forum}
-        open={editOpen}
-        setOpen={setEditOpen}
-        onUpdate={handleUpdateForum}
-      />
-      <DeleteForumModal
-        forum={forum}
-        open={deleteOpen}
-        setOpen={setDeleteOpen}
-        onDelete={handleDeleteForum}
-      />
+      {canEdit && (
+        <EditForumModal
+          forum={forum}
+          open={editOpen}
+          setOpen={setEditOpen}
+          onUpdate={handleUpdateForum}
+        />
+      )}
+
+      {canDelete && (
+        <DeleteForumModal
+          forum={forum}
+          open={deleteOpen}
+          setOpen={setDeleteOpen}
+          onDelete={handleDeleteForum}
+        />
+      )}
     </>
   );
 }
+  
